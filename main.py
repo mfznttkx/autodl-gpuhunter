@@ -6,7 +6,8 @@ import os
 import sys
 from pathlib import Path
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+from constants import BASE_DIR
+
 sys.path.append(BASE_DIR)
 
 from gpuhunter.logging import get_logger
@@ -15,10 +16,10 @@ logger = get_logger(__name__, os.path.join(BASE_DIR, "runtime/logs/main.log"))
 
 
 def get_command_names():
-    commands_dir = Path(BASE_DIR) / "gpuhunter" / "commands"
+    commands_dir = os.path.join(BASE_DIR, "gpuhunter/commands")
     command_names = [
         filename.stem
-        for filename in commands_dir.glob("*.py")
+        for filename in Path(commands_dir).glob("*.py")
         if filename.is_file() and not filename.name.startswith("_")
     ]
     return command_names

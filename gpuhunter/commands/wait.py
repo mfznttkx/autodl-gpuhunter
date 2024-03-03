@@ -1,3 +1,6 @@
+from gpuhunter.config import Config
+
+
 def get_help():
     return ""
 
@@ -10,5 +13,6 @@ def add_arguments(parser):
 
 
 def main(arg1):
-    pass
+    c = Config(token="asdfasdfafs")
+    c.save()
 

@@ -1,9 +1,12 @@
 import json
+import os.path
+
+from constants import DATA_DIR
 
 
-def json_dumps(obj, **kwargs):
+def json_dumps(obj, *args, **kwargs):
     kwargs.setdefault("ensure_ascii", False)
-    return json.dumps(obj, **kwargs)
+    return json.dumps(obj, *args, **kwargs)
 
 
 def url_set_params(url, **params):
@@ -21,3 +24,13 @@ def url_set_params(url, **params):
     prlist = list(pr)
     prlist[4] = urlencode(query)
     return urlparse.ParseResult(*prlist).geturl()
+
+
+def save_data(filename, data):
+    with open(os.path.join(DATA_DIR, filename), "w", encoding="utf-8") as f:
+        json_dumps(data, f)
+
+
+def load_data(filename):
+    with open(os.path.join(DATA_DIR, filename), "w", encoding="utf-8") as f:
+        return json.load(f)
