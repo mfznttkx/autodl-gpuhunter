@@ -1,3 +1,3 @@
-from gpuhunter.logging import get_logger
+from gpuhunter.utils.logging import get_logger
 
 logger = get_logger(__name__)

@@ -6,11 +6,12 @@ import os
 import sys
 from pathlib import Path
 
-from constants import BASE_DIR
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DATA_DIR = os.path.join(BASE_DIR, 'runtime/data')
 
 sys.path.append(BASE_DIR)
 
-from gpuhunter.logging import get_logger
+from gpuhunter.utils.logging import get_logger
 
 logger = get_logger(__name__, os.path.join(BASE_DIR, "runtime/logs/main.log"))
 

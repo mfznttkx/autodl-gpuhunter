@@ -1,7 +1,4 @@
 import json
-import os.path
-
-from constants import DATA_DIR
 
 
 def json_dumps(obj, *args, **kwargs):
@@ -26,11 +23,17 @@ def url_set_params(url, **params):
     return urlparse.ParseResult(*prlist).geturl()
 
 
-def save_data(filename, data):
-    with open(os.path.join(DATA_DIR, filename), "w", encoding="utf-8") as f:
-        json_dumps(data, f)
+def snake_case(name):
+    import re
+    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+    name = re.sub('__([A-Z])', r'_\1', name)
+    name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', name)
+    name = re.sub(r'[.\-\s]+', r'_', name)
+    name = name.strip('_').lower()
+    return name
 
 
-def load_data(filename):
-    with open(os.path.join(DATA_DIR, filename), "w", encoding="utf-8") as f:
-        return json.load(f)
+def camel_case(name):
+    name = snake_case(name)
+    name = ''.join(word.title() for word in name.split('_'))
+    return name

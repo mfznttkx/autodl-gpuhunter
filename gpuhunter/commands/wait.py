@@ -1,8 +1,5 @@
-from gpuhunter.config import Config
-
-
 def get_help():
-    return ""
+    return "开始蹲守。 Start waiting."
 
 
 def add_arguments(parser):
@@ -13,6 +10,4 @@ def add_arguments(parser):
 
 
 def main(arg1):
-    c = Config(token="asdfasdfafs")
-    c.save()
-
+    pass
