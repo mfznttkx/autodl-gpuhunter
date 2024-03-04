@@ -10,4 +10,11 @@ def add_arguments(parser):
 
 
 def main(arg1):
-    pass
+    from gpuhunter.data_object import RegionList
+    d = RegionList()
+    d.load()
+    # d.update()
+
+    print(d.get_gpu_stats())
+    print(d.get_region_stats())
+

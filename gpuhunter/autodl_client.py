@@ -1,6 +1,6 @@
 import requests
 
-from gpuhunter.utils import url_set_params
+from gpuhunter.utils.helpers import url_set_params
 from main import logger
 
 
@@ -11,12 +11,37 @@ class RequestError(Exception):
 class AutodlClient:
     def __init__(self, **kwargs):
         self.api_host = "https://api.autodl.com"
+        self.backend_host = "https://fe-config-backend.autodl.com"
         self.token = None
-
-        for key, value in kwargs.items():
-            if hasattr(self, key):
-                setattr(self, key, value)
+        self.__dict__.update(kwargs)
         self._conf = kwargs
+
+    def get_regions(self, **kwargs):
+        """
+        :return: [
+            {
+              "region_sign": [
+                "west-B",
+                "west-C"
+              ],
+              "region_name": "西北B区",
+              "data_center": "westDC3",
+              "visible": "all",
+              "used_for": "all",
+              "setting": {
+                "clone_instance": true
+              },
+              "clone_instance": true,
+              "tag_name": "",
+              "tag_color": "#FF0000"
+            }
+        ]
+        """
+        api = "https://fe-config-backend.autodl.com/api/v1/autodl/region/tag"
+        params = {
+            **kwargs,
+        }
+        return self.request(api, params=params, method="GET")
 
     def get_region_gpu_types(self, region_sign_list, **kwargs):
         """
@@ -45,7 +70,7 @@ class AutodlClient:
         return self.request(api, body=body)
 
     def request(self, api_url, params=None, method="POST", body=None):
-        url = f"{self.api_host}{api_url}"
+        url = api_url if api_url.startswith("https://") else f"{self.api_host}{api_url}"
         if params:
             url = url_set_params(url, **params)
         headers = {
@@ -57,9 +82,22 @@ class AutodlClient:
         logger.debug(body)
         response = requests.request(method, url, json=body, headers=headers)
         json = response.json()
-        if json["code"] != "Success":
+        if json["code"] not in ["Success", "OK"]:
             logger.error(json)
             raise RequestError(json["msg"])
         else:
             logger.debug(json["data"])
             return json["data"]
+
+
+def get_default():
+    from gpuhunter.data_object import Config
+    config = Config()
+    config.load()
+    client = AutodlClient(
+        token=config.token
+    )
+    return client
+
+
+autodl_client = get_default()
