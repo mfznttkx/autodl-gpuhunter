@@ -20,6 +20,216 @@ class AutodlClient:
         self.__dict__.update(kwargs)
         self._conf = kwargs
 
+    def create_instance(self, machine_id, image, instance_name="",
+                        private_image_uuid="", reproduction_uuid="", reproduction_id=0,
+                        req_gpu_amount=1, expand_data_disk=0,
+                        clone_instance_uuid=None, copy_data_disk_after_clone=False,
+                        keep_src_user_service_address_after_clone=True,
+                        **kwargs):
+        """
+        :param machine_id: "463e49a218"
+        :param image: "hub.kce.ksyun.com/autodl-image/torch:cuda11.0-cudnn8-devel-ubuntu18.04-py38-torch1.7.0"
+        :param instance_name: "my-instance-name"
+        :param private_image_uuid: "image-f1389xxxxx"
+        :param reproduction_uuid: "RVC-Boss/GPT-SoVITS/GPT-SoVITS-Official:v9"
+        :param reproduction_id: 761
+        :param req_gpu_amount: 1
+        :param expand_data_disk: 1073741824 (单位B，1GB=1073741824)
+        :param clone_instance_uuid: 要复制的实例 ID
+        :param copy_data_disk_after_clone: 是否复制数据盘
+        :param keep_src_user_service_address_after_clone: 是否保持服务地址
+        :return: 3a5440b582-e99c9237 (新的 instance_uuid)
+        """
+        api = "/api/v1/order/instance/create/payg"
+        body = {
+            "instance_info": {
+                "machine_id": machine_id,
+                "charge_type": "payg",
+                "req_gpu_amount": req_gpu_amount,
+                "image": image,
+                "private_image_uuid": private_image_uuid,
+                "reproduction_uuid": reproduction_uuid,
+                "instance_name": instance_name,
+                "expand_data_disk": expand_data_disk,
+                "reproduction_id": reproduction_id,
+            },
+            "price_info": {
+                "coupon_id_list": [],
+                "machine_id": machine_id,
+                "charge_type": "payg",
+                "duration": 1,
+                "num": req_gpu_amount,
+                "expand_data_disk": expand_data_disk
+            },
+            **kwargs,
+        }
+        if clone_instance_uuid:
+            api = "/api/v1/order/instance/clone/payg"
+            body["instance_uuid"] = clone_instance_uuid
+            body["instance_info"] = {
+                **body["instance_info"],
+                "copy_data_disk_after_clone": copy_data_disk_after_clone,
+                "keep_src_user_service_address_after_clone": keep_src_user_service_address_after_clone
+            }
+        return self.request(api, body=body)
+
+    def update_instance_name(self, instance_uuid, instance_name, **kwargs):
+        api = "/api/v1/instance/name"
+        body = {
+            "instance_uuid": instance_uuid,
+            "instance_name": instance_name,
+            **kwargs,
+        }
+        self.request(api, body=body)
+
+    def get_private_images(self, **kwargs):
+        """
+        :return: [
+          {
+            "id": 224747,
+            "created_at": "2023-11-27T00:32:01+08:00",
+            "updated_at": "2023-11-27T00:32:01+08:00",
+            "uid": 230135,
+            "image_uuid": "image-f1389xxxxx",
+            "machine_id": "fc604xxxxx",
+            "runtime_uuid": "autodl-container-fc604xxxxx-xxxxxxxx",
+            "instance_uuid": "fc604xxxxx-xxxxxxxx",
+            "name": "xxxxxxx-xxxx-xxxx",
+            "storage_oss_sign": "oss-cn-ningxia-image-hub",
+            "bucket_name": "online-private-image",
+            "object_name": "fc604xxxxx-xxxxxxxx-xxxxxx.tar",
+            "image_size": 11193702400,
+            "read_layer_image_name": "hub.kce.ksyun.com/autodl-image/miniconda:cuda11.8-cudnn8-devel-ubuntu22.04-py310",
+            "progress_info": null,
+            "progress_content": {
+              "oss_file_size": 11193702400,
+              "progress": 100,
+              "error": ""
+            },
+            "status": "finished",
+            "share_image_type": 0,
+            "share_image_uuid": "",
+            "share_image_user": "",
+            "user_phone": "",
+            "python_v": "3.10(ubuntu22.04)",
+            "cuda_v": "11.8",
+            "StorageOSS": null
+          },
+        ]
+        """
+        api = "/api/v1/image/private/get"
+        params = {
+            **kwargs,
+        }
+        return self.request(api, params=params, method="GET")
+
+    def get_shared_images(self, reproduction_uuid="", **kwargs):
+        """
+        :param reproduction_uuid:
+        :param kwargs:
+        :return: [
+          {
+            "image_id": 332,
+            "uuid": "chatchat-space/Langchain-Chatchat/Langchain-Chatchat",
+            "username": "glide-the",
+            "reproduce_count": 12680,
+            "describe": "基于 Langchain 与 ChatGLM 等语言模型的本地知识库问答",
+            "avatar": "https://codewithgpu-image-1310972338.cos.ap-beijing.myqcloud.com/115767-499182437-yMR8GzCEAGX5fOkrWVHn.png",
+            "popular_type": "excellent",
+            "version_info": [
+              {
+                "version": "0.2.10",
+                "public_image_size": "29185730560",
+                "cuda_v": "12.2",
+                "framework": "PyTorch",
+                "framework_v": "12.0",
+                "created_at": "2024-01-26T10:16:24+08:00",
+                "reproduce_count": 1770
+              },
+              ...
+            ],
+          },
+        ]
+        """
+        api = "/api/v1/image/codewithgpu/list"
+        params = {
+            "reproduction_uuid": reproduction_uuid,
+            **kwargs,
+        }
+        return self.request(api, params=params, method="GET")
+
+    def get_shared_image_detail(self, image_uuid, image_version, image_id, **kwargs):
+        """
+        :param image_uuid: "chatchat-space/Langchain-Chatchat/Langchain-Chatchat"
+        :param image_version: "0.2.10"
+        :param image_id: 332
+        :return: {
+          "username": "glide-the",
+          "entity_uuid": "chatchat-space/Langchain-Chatchat/Langchain-Chatchat:v0.2.10",
+          "entity_id": 332,
+          "image": "hub.kce.ksyun.com/autodl-image/tensorflow:cuda11.2-cudnn8-devel-ubuntu20.04-py38-tf2.9.0",
+          "python_v": "3.8(ubuntu20.04)",
+          "cuda_v": "11.2",
+          "framework": "",
+          "framework_v": "",
+          "created_at": "0001-01-01T00:00:00Z"
+        }
+        """
+        api = "/api/v1/image/codewithgpu"
+        params = {
+            "reproduction_uuid": f"{image_uuid}:v{image_version}",
+            "reproduction_id": image_id,
+            **kwargs,
+        }
+        return self.request(api, params=params, method="GET")
+
+    def get_base_images(self, **kwargs):
+        """
+        :return: [
+          {
+            "sort": 20,
+            "label": "PyTorch",
+            "label_name": "PyTorch",
+            "image_uuid": "",
+            "children": [
+              {
+                "sort": 2010,
+                "label": "1.1.0",
+                "label_name": "1.1.0",
+                "image_uuid": "",
+                "children": [
+                  {
+                    "sort": 201010,
+                    "label": "3.7(ubuntu18.04)",
+                    "label_name": "3.7(ubuntu18.04)",
+                    "image_uuid": "",
+                    "children": [
+                      {
+                        "sort": 20101010,
+                        "label": "10.0",
+                        "label_name": {
+                          "i": "hub.kce.ksyun.com/autodl-image/torch:cuda10.0-cudnn7-devel-ubuntu18.04-py37-torch1.1.0",
+                          "uuid": "base-image-0x7zgbw1ji",
+                          "v": "10.0"
+                        },
+                        "image_uuid": ""
+                      }
+                    ]
+                  },
+                  ...
+                ]
+              },
+              ...
+            ],
+          },
+        ]
+        """
+        api = "/api/v1/image/all"
+        params = {
+            **kwargs,
+        }
+        return self.request(api, params=params, method="GET")
+
     def list_instance(self, status=None, **kwargs):
         """
         :param status: creating | starting | running | re_initializing | ...
@@ -206,6 +416,73 @@ def get_running_instances(region_names=None, gpu_type_names=None, image=None, pr
         for inst in autodl_client.list_instance(INSTANCE_RUNNING_STATUSES)
         if match(inst)
     ]
+
+
+def resolve_image_info(base_image_labels=None, shared_image_keyword=None,
+                       shared_image_username_keyword=None, shared_image_version=None,
+                       private_image_uuid=None, private_image_name=None):
+    def search_base_image(items, label_index=0):
+        """
+        :return: "hub.kce.ksyun.com/autodl-image/tensorflow:cuda11.x-py38-tf1.15.5"
+        """
+        if item := next((i for i in items if i["label"] == base_image_labels[label_index]), None):
+            if isinstance(item["label_name"], dict):
+                return item["label_name"]["i"]
+            else:
+                return search_base_image(items["children"], label_index + 1)
+        else:
+            raise ValueError(f"Image label not found: {base_image_labels[label_index]!r} in items {items!r}")
+
+    image_info = {
+        "image": "",
+        "private_image_uuid": "",
+        "reproduction_uuid": "",
+        "reproduction_id": 0,
+    }
+    if base_image_labels:
+        image_info["image"] = search_base_image(autodl_client.get_base_images())
+    elif shared_image_keyword:
+        filtered_image = [i for i in autodl_client.get_shared_images(shared_image_keyword)
+                          if (not shared_image_username_keyword
+                              or i["username"].lower().contains(shared_image_username_keyword.lower()))]
+        if len(filtered_image) == 0:
+            raise ValueError(f"Image not found with keyword: {shared_image_keyword!r}"
+                             f" and {shared_image_username_keyword!r}")
+        image = filtered_image[0]
+        filtered_versions = [v for v in image["version_info"]
+                             if (not shared_image_version
+                                 or v["version"].startswith(shared_image_version.strip("v")))]
+        if len(filtered_versions) == 0:
+            raise ValueError(f"Image not found with version: {shared_image_version!r}")
+        image_version = filtered_versions[0]["version"]
+        shared_image = autodl_client.get_shared_image_detail(image["uuid"], image_version, image["image_id"])
+        image_info = {
+            **image_info,
+            "image": shared_image["image"],
+            "reproduction_uuid": shared_image["entity_uuid"],
+            "reproduction_id": shared_image["entity_id"],
+        }
+    elif private_image_uuid or private_image_name:
+        filtered_image = [i for i in autodl_client.get_private_images()
+                          if (private_image_uuid and i["image_uuid"] == private_image_uuid
+                              or private_image_name and i["name"] == private_image_name)]
+        if len(filtered_image) == 0:
+            raise ValueError(f"Image not found with uuid: {private_image_uuid!r}"
+                             f" or name: {private_image_name!r}")
+        private_image = filtered_image[0]
+        image_info = {
+            **image_info,
+            "image": private_image["read_layer_image_name"],
+            "private_image_uuid": private_image["image_uuid"],
+        }
+    else:
+        raise ValueError(f"Invalid parameters")
+    return image_info
+
+
+def create_instance_from_config():
+    # 😊🎁
+    pass
 
 
 autodl_client = get_default_client()
