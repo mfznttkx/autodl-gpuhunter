@@ -1,3 +1,4 @@
+import datetime
 import json
 
 
@@ -37,3 +38,20 @@ def camel_case(name):
     name = snake_case(name)
     name = ''.join(word.title() for word in name.split('_'))
     return name
+
+
+def time_of_day(d, t):
+    if isinstance(d, datetime.date):
+        return datetime.datetime.combine(d, t)
+    elif isinstance(d, datetime.datetime):
+        return d.replace(hour=t.hour, minute=t.minute, second=t.second, microsecond=t.microsecond)
+    else:
+        raise ValueError('Unsupported time type')
+
+
+def end_of_day(d):
+    return time_of_day(d, datetime.time(hour=23, minute=59, second=59, microsecond=999999))
+
+
+def begin_of_day(d):
+    return time_of_day(d, datetime.time(hour=0, minute=0, second=0, microsecond=0))

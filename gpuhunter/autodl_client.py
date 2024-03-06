@@ -1,3 +1,4 @@
+import datetime
 import time
 
 import requests
@@ -72,6 +73,17 @@ class AutodlClient:
                 "keep_src_user_service_address_after_clone": keep_src_user_service_address_after_clone
             }
         return self.request(api, body=body)
+
+    def update_instance_shutdown(self, instance_uuid, shutdown_at, **kwargs):
+        api = "/api/v1/instance/timed/shutdown"
+        body = {
+            "instance_uuid": instance_uuid,
+            "shutdown_at": (shutdown_at.strftime('%Y-%m-%d %H:%M')
+                            if isinstance(shutdown_at, (datetime.datetime, datetime.date))
+                            else shutdown_at),
+            **kwargs,
+        }
+        self.request(api, body=body)
 
     def update_instance_name(self, instance_uuid, instance_name, **kwargs):
         api = "/api/v1/instance/name"
@@ -478,11 +490,6 @@ def resolve_image_info(base_image_labels=None, shared_image_keyword=None,
     else:
         raise ValueError(f"Invalid parameters")
     return image_info
-
-
-def create_instance_from_config():
-    # 😊🎁
-    pass
 
 
 autodl_client = get_default_client()

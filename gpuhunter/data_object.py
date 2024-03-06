@@ -38,6 +38,24 @@ class DataObjectMixin:
 
 class Config(DataObjectMixin):
     token = None
+    region_names = []
+    gpu_type_names = []
+    gpu_idle_num = 1
+    instance_num = 1
+    base_image_labels = ("", "", "", "")
+    shared_image_keyword = ""
+    shared_image_username_keyword = ""
+    shared_image_version = ""
+    private_image_uuid = ""
+    private_image_name = ""
+    expand_data_disk = 0
+    clone_instance_uuid = ""
+    copy_data_disk_after_clone = False
+    keep_src_user_service_address_after_clone = True
+    shutdown_instance_after_hours = 0
+    shutdown_instance_today = True
+    shutdown_hunter_after_finished = True
+    retry_interval_minutes = 10
 
 
 class RegionList(DataObjectMixin):
