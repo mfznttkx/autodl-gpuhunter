@@ -1,4 +1,5 @@
 import logging
+import os.path
 import sys
 from logging.handlers import TimedRotatingFileHandler
 
@@ -11,22 +12,22 @@ simple_formatter = logging.Formatter(
 )
 
 
-def get_logger(logger_name, file_name):
+def get_logger(logger_name, logs_dir):
     logger = logging.getLogger(logger_name)
     logger.setLevel(logging.DEBUG)
-
+    # 屏幕
     stream_handler = logging.StreamHandler(sys.stdout)
-    stream_handler.setLevel(logging.DEBUG)
-    stream_handler.setFormatter(verbose_formatter)
-
-    file_handler = TimedRotatingFileHandler(
-        filename=file_name,
-        when="D",
-        backupCount=5,
-    )
-    file_handler.setLevel(logging.INFO)
-    file_handler.setFormatter(simple_formatter)
-
+    stream_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(simple_formatter)
     logger.addHandler(stream_handler)
-    logger.addHandler(file_handler)
+    # 文件
+    for level, filename in ((logging.DEBUG, "main.log"), (logging.INFO, "output.log")):
+        file_handler = TimedRotatingFileHandler(
+            filename=os.path.join(logs_dir, filename),
+            when="D",
+            backupCount=5,
+        )
+        file_handler.setLevel(level)
+        file_handler.setFormatter(verbose_formatter)
+        logger.addHandler(file_handler)
     return logger

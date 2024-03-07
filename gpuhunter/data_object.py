@@ -56,6 +56,13 @@ class Config(DataObjectMixin):
     shutdown_instance_today = True
     shutdown_hunter_after_finished = True
     retry_interval_minutes = 10
+    mail_notify = False
+    mail_receipt = ""
+    mail_sender = ""
+    mail_smtp_host = ""
+    mail_smtp_port = 465
+    mail_smtp_username = ""
+    mail_smtp_password = ""
 
 
 class RegionList(DataObjectMixin):

@@ -13,7 +13,7 @@ sys.path.append(BASE_DIR)
 
 from gpuhunter.utils.logging import get_logger
 
-logger = get_logger(__name__, os.path.join(BASE_DIR, "runtime/logs/main.log"))
+logger = get_logger(__name__, os.path.join(BASE_DIR, "runtime/logs"))
 
 
 def get_command_names():
