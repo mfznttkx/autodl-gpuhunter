@@ -2,6 +2,8 @@ import datetime
 import time
 
 import requests
+from requests import RequestException
+from retry import retry
 
 from gpuhunter.utils.helpers import url_set_params
 from main import logger
@@ -9,7 +11,7 @@ from main import logger
 INSTANCE_RUNNING_STATUSES = ["creating", "starting", "running", "re_initializing"]
 
 
-class RequestError(Exception):
+class FailedError(Exception):
     pass
 
 
@@ -374,6 +376,47 @@ class AutodlClient:
         }
         return self.request(api, body=body)
 
+    def get_instance_snapshot(self, instance_uuid, **kwargs):
+        """
+        :return: {
+            "image_type": "public",
+            "image": {
+              "image_name": "hub.kce.ksyun.com/autodl-image/torch:cuda10.0-cudnn7-devel-ubuntu18.04-py37-torch1.1.0",
+              ...
+            },
+            "payg_price": 9536,
+            "origin_pay_price": 10040,
+            "snapshot_gpu_alias_name": "RTX 4090",
+            "machine_info_snapshot": {
+              "cpu_num": 128,
+              "disk_size": 7679228837888,
+              "gpu_type": {
+                "name": "RTX 4090",
+                "memory": 25769803776
+              },
+              ...
+              "machine_sku": [
+                {
+                  "type": "payg",
+                  "origin_price": 0,
+                  "current_price": 2510,
+                  ...
+                },
+              ],
+              "region_sign": "west-B",
+              "region_name": "西北B区"
+            },
+            ...
+          }
+        """
+        api = "/api/v1/instance/snapshot"
+        params = {
+            "instance_uuid": instance_uuid,
+            **kwargs,
+        }
+        return self.request(api, params=params, method="GET")
+
+    @retry(RequestException, 6, 5, backoff=2, logger=logger)
     def request(self, api_url, params=None, method="POST", body=None):
         url = api_url if api_url.startswith("https://") else f"{self.api_host}{api_url}"
         if params:
@@ -389,7 +432,7 @@ class AutodlClient:
         json = response.json()
         if json["code"] not in ["Success", "OK"]:
             logger.error(json)
-            raise RequestError(json["msg"])
+            raise FailedError(json["msg"])
         else:
             logger.debug(json["data"])
             return json["data"]
