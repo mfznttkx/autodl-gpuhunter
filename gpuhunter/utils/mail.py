@@ -3,9 +3,12 @@ from email.header import decode_header, make_header
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 
+from retry import retry
+
 from main import logger
 
 
+@retry((smtplib.SMTPConnectError, smtplib.SMTPHeloError), 3, 5, backoff=3, logger=logger)
 def send_mail(receipt, subject, content=None, sender=None,
               smtp_host=None, smtp_port=465, smtp_username=None, smtp_password=None):
     logger.debug(f'Send mail: {subject} -> {receipt}')

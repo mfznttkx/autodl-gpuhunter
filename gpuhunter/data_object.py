@@ -22,8 +22,9 @@ class DataObjectMixin:
         return self
 
     def load(self):
-        if os.path.exists(self.data_file):
-            with open(os.path.join(DATA_DIR, self.data_file), "r", encoding="utf-8") as f:
+        filename = os.path.join(DATA_DIR, self.data_file)
+        if os.path.exists(filename):
+            with open(filename, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 self.__dict__.update(data)
         return self
@@ -43,7 +44,7 @@ class Config(DataObjectMixin):
     gpu_type_names = []
     gpu_idle_num = 1
     instance_num = 1
-    base_image_labels = ["", "", "", ""]
+    base_image_labels = None
     shared_image_keyword = ""
     shared_image_username_keyword = ""
     shared_image_version = ""

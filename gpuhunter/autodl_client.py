@@ -94,7 +94,7 @@ class AutodlClient:
             "instance_name": instance_name,
             **kwargs,
         }
-        self.request(api, body=body)
+        self.request(api, body=body, method="PUT")
 
     def get_private_images(self, **kwargs):
         """
@@ -271,21 +271,11 @@ class AutodlClient:
         """
         api = "/api/v1/instance"
         body = {
-            "page_index": 1,
-            "page_size": 100,
+            "page_size": 20,
             "status": status if isinstance(status, (list, tuple)) else [status] if status else [],
             **kwargs,
         }
-        page_index = 1
-        while True:
-            body['page_index'] = page_index
-            data = self.request(api, body=body)
-            for item in data['list']:
-                yield item
-            page_index += 1
-            if page_index > data['max_page']:
-                break
-            time.sleep(0.2)
+        return self.list_request(api, body)
 
     def get_regions(self, **kwargs):
         """
@@ -340,41 +330,42 @@ class AutodlClient:
         }
         return self.request(api, body=body)
 
-    def get_machine_list(self, region_sign_list, gpu_type_name, gpu_idle_num=1, **kwargs):
+    def list_machine(self, region_sign_list, gpu_type_name, gpu_idle_num=1, **kwargs):
         """
         获取 GPU 主机列表，使用 list[0]["gpu_order_num"] 判断是否可可租。
         :param region_sign_list: ["beijing-A", "beijing-B"]
         :param gpu_type_name: ["RTX 4090", "RTX 3090"]
         :param gpu_idle_num:
-        :return: {
-          "machine_id": "2dd949a4cf",
-          "machine_name": "agent-116-172-66-240",
-          "machine_alias": "063机",
-          ...
-          "region_name": "西北B区",
-          "region_sign": "west-B",
-          "gpu_name": "RTX 4090",
-          "gpu_order_num": 0,
-          ...
-          "highest_cuda_version": "12.2",
-          "cpu_per_gpu": 22,
-          "mem_per_gpu": 96636764160,
-          "payg": true,
-          "payg_price": 2720,
-          "max_data_disk_expand_size": 2147483648000,
-        }
+        :return: [
+          {
+            "machine_id": "2dd949a4cf",
+            "machine_name": "agent-116-172-66-240",
+            "machine_alias": "063机",
+            ...
+            "region_name": "西北B区",
+            "region_sign": "west-B",
+            "gpu_name": "RTX 4090",
+            "gpu_order_num": 0,
+            ...
+            "highest_cuda_version": "12.2",
+            "cpu_per_gpu": 22,
+            "mem_per_gpu": 96636764160,
+            "payg": true,
+            "payg_price": 2720,
+            "max_data_disk_expand_size": 2147483648000,
+          },
+        ]
         """
         api = "/api/v1/user/machine/list"
         body = {
             "charge_type": "payg",
-            "page_index": 1,
-            "page_size": 10,
+            "page_size": 20,
             "gpu_idle_num": gpu_idle_num,
             "region_sign_list": region_sign_list,
             "gpu_type_name": gpu_type_name if isinstance(gpu_type_name, (list, tuple)) else [gpu_type_name],
             **kwargs,
         }
-        return self.request(api, body=body)
+        return self.list_request(api, body)
 
     def get_instance_snapshot(self, instance_uuid, **kwargs):
         """
@@ -416,6 +407,18 @@ class AutodlClient:
         }
         return self.request(api, params=params, method="GET")
 
+    def list_request(self, api, body):
+        page_index = 1
+        while True:
+            body['page_index'] = page_index
+            data = self.request(api, body=body)
+            for item in data['list']:
+                yield item
+            page_index += 1
+            if page_index > data['max_page']:
+                break
+            time.sleep(0.2)
+
     @retry(RequestException, 6, 5, backoff=2, logger=logger)
     def request(self, api_url, params=None, method="POST", body=None):
         url = api_url if api_url.startswith("https://") else f"{self.api_host}{api_url}"
@@ -448,12 +451,14 @@ def get_default_client():
     return client
 
 
-def get_available_machines(region_sign_list, gpu_type_name, gpu_idle_num=1, **kwargs):
-    return [
-        mch
-        for mch in autodl_client.get_machine_list(region_sign_list, gpu_type_name, gpu_idle_num, **kwargs)
-        if mch["gpu_idle_num"] >= gpu_idle_num and mch["gpu_order_num"] >= gpu_idle_num
-    ]
+def get_available_machines(region_sign_list, gpu_type_name, gpu_idle_num=1, count=10, **kwargs):
+    machines = []
+    for mch in autodl_client.list_machine(region_sign_list, gpu_type_name, gpu_idle_num, **kwargs):
+        if mch["gpu_idle_num"] >= gpu_idle_num and mch["gpu_order_num"] >= gpu_idle_num:
+            machines.append(mch)
+        if count is not None and len(machines) == count:
+            break
+    return machines
 
 
 def get_running_instances(region_names=None, gpu_type_names=None, image=None, private_image_uuid=None,
@@ -484,7 +489,7 @@ def resolve_image_info(base_image_labels=None, shared_image_keyword=None,
             if isinstance(item["label_name"], dict):
                 return item["label_name"]["i"]
             else:
-                return search_base_image(items["children"], label_index + 1)
+                return search_base_image(item["children"], label_index + 1)
         else:
             raise ValueError(f"Image label not found: {base_image_labels[label_index]!r} in items {items!r}")
 
@@ -499,7 +504,7 @@ def resolve_image_info(base_image_labels=None, shared_image_keyword=None,
     elif shared_image_keyword:
         filtered_image = [i for i in autodl_client.get_shared_images(shared_image_keyword)
                           if (not shared_image_username_keyword
-                              or i["username"].lower().contains(shared_image_username_keyword.lower()))]
+                              or shared_image_username_keyword.lower() in i["username"].lower())]
         if len(filtered_image) == 0:
             raise ValueError(f"Image not found with keyword: {shared_image_keyword!r}"
                              f" and {shared_image_username_keyword!r}")
