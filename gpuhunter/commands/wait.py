@@ -1,7 +1,6 @@
 import os
 import time
 from datetime import timedelta, datetime
-from functools import reduce
 from smtplib import SMTPException
 
 from gpuhunter.autodl_client import FailedError
@@ -52,10 +51,8 @@ def try_to_create_instances():
     # 加载数据和配置
     config = Config().load()
     region_list = RegionList().update()
-    region_sign_list = reduce(
-        lambda x, y: x + y,
-        [r["region_sign"] for r in region_list.list if r["region_name"] in config.region_names], []
-    )
+    region_sign_list = [s for r in region_list.list if r["region_name"] in config.region_names
+                        for s in r["region_sign"]]
     logger.debug(f"config: {config.to_dict()!r}")
     logger.debug(f"region_list.list: {region_list.to_dict()!r}")
     # 如果有克隆目标，确保使用同区域的机器

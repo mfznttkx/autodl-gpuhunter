@@ -85,11 +85,13 @@ class RegionList(DataObjectMixin):
                 ]
             })
 
-    def get_gpu_stats(self, region_names=None):
+    def get_gpu_type_names(self):
+        return [s["gpu_type"] for s in self.get_gpu_stats()]
+
+    def get_gpu_stats(self, region_names=None, gpu_types=None):
         gpu_stats = []
-        filtered = [r for r in self.list if not region_names or r["region_name"] in region_names]
-        for r in filtered:
-            for g in r["gpu_types"]:
+        for r in [r for r in self.list if not region_names or r["region_name"] in region_names]:
+            for g in [g for g in r["gpu_types"] if not gpu_types or g["gpu_type"] in gpu_types]:
                 if existed := next((e for e in gpu_stats if e["gpu_type"] == g["gpu_type"]), None):
                     existed["idle_gpu_num"] += g["idle_gpu_num"]
                     existed["total_gpu_num"] += g["total_gpu_num"]
@@ -97,9 +99,9 @@ class RegionList(DataObjectMixin):
                     gpu_stats.append({**g})
         return gpu_stats
 
-    def get_region_stats(self, gpu_types=None):
+    def get_region_stats(self, gpu_types=None, region_names=None):
         region_stats = []
-        for r in self.list:
+        for r in [r for r in self.list if not region_names or r["region_name"] in region_names]:
             filtered = [g for g in r["gpu_types"] if not gpu_types or g["gpu_type"] in gpu_types]
             region_stats.append({
                 "region_name": r["region_name"],
