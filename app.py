@@ -1,5 +1,3 @@
-import datetime
-
 import gradio as gr
 
 from gpuhunter.autodl_client import FailedError, autodl_client
@@ -62,52 +60,60 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
     with gr.Tab("🐰 算力实况", visible=False) as gr_stat_tab:
         gr.Markdown("## 当前 GPU 主机数量")
-        last_update_time = datetime.datetime.now()
-        selected_gpu_type_names = [
-            "RTX 4090",
-            "RTX 3090",
-            "RTX 3080 Ti",
-            "RTX 3080",
-            "RTX 3060",
-        ]
-
-        gr_gpu_checkbox_group = gr.CheckboxGroup([], label="显卡型号",
-                                                 value=selected_gpu_type_names)
+        gr_gpu_checkbox_group = gr.CheckboxGroup([], label="显卡型号")
         gr_gpu_region_matrix = gr.Matrix()
-
         with gr.Row():
             with gr.Column(scale=8):
-                gr_bottom_text = gr.Markdown()
+                gr_stat_note = gr.Markdown()
             with gr.Column(scale=2):
-                stat_update_button = gr.Button("立即更新", size="sm")
+                gr_stat_refresh_button = gr.Button("立即更新", size="sm")
 
-    # def update_matrix(gpu_type_names):
-    #     global selected_gpu_type_names
-    #     selected_gpu_type_names = gpu_type_names
-    #     return {
-    #         "headers": ["地区"] + [n for n in gpu_type_names],
-    #         "data": [
-    #             [r["region_name"]] + [
-    #                 all_region_list.get_region_stats([gn], [r["region_name"]])[0]["idle_gpu_num"] or ""
-    #                 for gn in gpu_type_names
-    #             ]
-    #             for r in all_region_list.get_region_stats()
-    #         ]
-    #     }
-    #
-    #
-    # def refresh_matrix(gpu_type_names):
-    #     global all_region_list, last_update_time
-    #     all_region_list = RegionList().update()
-    #     last_update_time = datetime.datetime.now()
-    #     bottom_text = f"以上是当前 AutoDL 官网查询到的 GPU 主机数量，" \
-    #                   f"更新时间：{last_update_time.strftime('%Y-%m-%d %H:%M:%S')}。"
-    #     return update_matrix(gpu_type_names), bottom_text
 
-    def load_data(config=None):
+        def refresh_stat(gpu_type_names=None):
+            region_list = RegionList().update()
+            return load_stat(gpu_type_names, region_list)
+
+
+        def load_stat(gpu_type_names=None, region_list=None):
+            region_list = region_list or RegionList().load()
+            gpu_type_names = gpu_type_names or [
+                "RTX 4090",
+                "RTX 3090",
+                "RTX 3080 Ti",
+                "RTX 3080",
+                "RTX 3060",
+            ]
+            return {
+                **update_matrix(gpu_type_names),
+                gr_gpu_checkbox_group: gr.CheckboxGroup(choices=region_list.get_gpu_type_names(), value=gpu_type_names),
+                gr_stat_note: gr.Markdown(f"以上是当前 AutoDL 官网查询到的 GPU 主机数量，"
+                                          f"更新时间：{region_list.modified_time.strftime('%Y-%m-%d %H:%M:%S')}。"),
+            }
+
+
+        def update_matrix(gpu_type_names):
+            region_list = RegionList().load()
+            return {
+                gr_gpu_region_matrix: gr.Matrix(headers=["地区"] + [n for n in gpu_type_names], value=[
+                    [r["region_name"]] + [
+                        region_list.get_region_stats([gn], [r["region_name"]])[0]["idle_gpu_num"] or ""
+                        for gn in gpu_type_names
+                    ]
+                    for r in region_list.get_region_stats()
+                ]),
+            }
+
+
+        gr_gpu_checkbox_group.change(update_matrix, inputs=[gr_gpu_checkbox_group], outputs=[gr_gpu_region_matrix],
+                                     show_progress="hidden")
+        gr_stat_refresh_button.click(refresh_stat, inputs=[gr_gpu_checkbox_group],
+                                     outputs=[gr_gpu_checkbox_group, gr_gpu_region_matrix, gr_stat_note])
+        demo.load(load_stat, outputs=[gr_gpu_checkbox_group, gr_gpu_region_matrix, gr_stat_note])
+
+
+    def load_config(config=None):
         if config is None:
             config = Config().load()
-        print(f"{config.token!r}")
         if config.token:
             try:
                 RegionList().update()
@@ -144,24 +150,20 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         config.token = token
         config.save()
         autodl_client.load_config()
-        return load_data(config)
+        return load_config(config)
 
 
-    # gr_gpu_checkbox_group.input(update_matrix, inputs=[gr_gpu_checkbox_group], outputs=gr_gpu_region_matrix)
-    # stat_update_button.click(refresh_matrix, inputs=[gr_gpu_checkbox_group],
-    #                          outputs=[gr_gpu_region_matrix, gr_bottom_text])
-    #
-    # demo.load(update_matrix, inputs=[gr_gpu_checkbox_group], outputs=gr_gpu_region_matrix)
+    def clear_token():
+        return save_token("")
 
-    # gr_token_save_button.click(save_token, inputs=gr_token_input)
 
-    demo.load(load_data, outputs=[gr_token_input_group, gr_token_input, gr_token_input_error,
-                                  gr_token_view_group, gr_token_view_input, gr_config_tab, gr_stat_tab])
+    demo.load(load_config, outputs=[gr_token_input_group, gr_token_input, gr_token_input_error,
+                                    gr_token_view_group, gr_token_view_input, gr_config_tab, gr_stat_tab])
 
     gr_token_save_button.click(save_token, inputs=[gr_token_input],
                                outputs=[gr_token_input_group, gr_token_input, gr_token_input_error,
                                         gr_token_view_group, gr_token_view_input, gr_config_tab, gr_stat_tab])
-    gr_token_clear_button.click(save_token, inputs=[gr.Textbox(visible=False)],
+    gr_token_clear_button.click(clear_token,
                                 outputs=[gr_token_input_group, gr_token_input, gr_token_input_error,
                                          gr_token_view_group, gr_token_view_input, gr_config_tab, gr_stat_tab])
 

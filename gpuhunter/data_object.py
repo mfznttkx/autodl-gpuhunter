@@ -1,5 +1,6 @@
 import json
 import os
+from datetime import datetime
 
 from gpuhunter.utils.helpers import snake_case
 from main import DATA_DIR
@@ -12,6 +13,10 @@ class DataObjectMixin:
     @property
     def data_file(self):
         return f"{snake_case(self.__class__.__name__)}.json"
+
+    @property
+    def modified_time(self):
+        return datetime.fromtimestamp(os.path.getmtime(os.path.join(DATA_DIR, self.data_file)))
 
     def to_dict(self):
         return self.__dict__
