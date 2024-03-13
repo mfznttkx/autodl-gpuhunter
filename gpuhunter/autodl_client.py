@@ -23,6 +23,12 @@ class AutodlClient:
         self.__dict__.update(kwargs)
         self._conf = kwargs
 
+    def load_config(self):
+        from gpuhunter.data_object import Config
+        config = Config()
+        config.load()
+        self.token = config.token
+
     def create_instance(self, machine_id, image, instance_name="",
                         private_image_uuid="", reproduction_uuid="", reproduction_id=0,
                         req_gpu_amount=1, expand_data_disk=0,
@@ -442,12 +448,8 @@ class AutodlClient:
 
 
 def get_default_client():
-    from gpuhunter.data_object import Config
-    config = Config()
-    config.load()
-    client = AutodlClient(
-        token=config.token
-    )
+    client = AutodlClient()
+    client.load_config()
     return client
 
 

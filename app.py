@@ -2,12 +2,14 @@ import datetime
 
 import gradio as gr
 
+from gpuhunter.autodl_client import FailedError, autodl_client
 from gpuhunter.data_object import RegionList, Config
 
-with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg")) as demo:
-    config = Config().load()
-    all_region_list = RegionList().update()
-    all_gpu_type_names = all_region_list.get_gpu_type_names()
+css = """
+.block.error-message { padding: var(--block-padding); }
+.block.error-message p { color: var(--error-icon-color); font-weight: bold; margin: 0; }
+"""
+with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"), css=css) as demo:
     gr.Markdown(
         """
         # 🐒 AutoDL GPU Hunter
@@ -15,8 +17,20 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         | [容器实例](https://www.autodl.com/console/instance/list)
         """
     )
-    gr.Textbox(label="开发者 Token", lines=2, placeholder="AutoDL/控制台/账号/设置/开发者 Token")
-    with gr.Tab("🌲 开始蹲守"):
+
+    with gr.Group(visible=False) as gr_token_input_group:
+        gr_token_input = gr.Textbox(label="开发者 Token", lines=2,
+                                    info="本 Token 以明文 JSON 格式保存在运行本程序的服务器上，"
+                                         "切勿在不信任的服务器上填写你的 Token，否则会被人盗用账号而造成意外损失！",
+                                    placeholder="获取方法：进入 AutoDL 网站 / 控制台 / 账号 / 设置 / 开发者 Token")
+        gr_token_input_error = gr.Markdown(elem_classes=["error-message"], visible=False)
+        gr_token_save_button = gr.Button("确定", variant="primary", size="lg")
+
+    with gr.Group(visible=False) as gr_token_view_group:
+        gr_token_view_input = gr.Textbox(label="开发者 Token", lines=1, interactive=False)
+        gr_token_clear_button = gr.Button("退出", variant="secondary", size="sm")
+
+    with gr.Tab("🌲 开始蹲守", visible=False) as gr_config_tab:
         gr.CheckboxGroup(["RTX 4090", "RTX 3090", "RTX 4090"], label="显卡型号", info=""),
         gr.CheckboxGroup(["西北B区", "北京B区"], label="地区", info=""),
         gr.Button("🙈 现在开始", variant="primary", size="lg")
@@ -46,7 +60,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         #   2024-03-02 15:03:34
         # 守到后关机
 
-    with gr.Tab("🐰 算力实况"):
+    with gr.Tab("🐰 算力实况", visible=False) as gr_stat_tab:
         gr.Markdown("## 当前 GPU 主机数量")
         last_update_time = datetime.datetime.now()
         selected_gpu_type_names = [
@@ -57,7 +71,8 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             "RTX 3060",
         ]
 
-        gr_gpu_checkbox_group = gr.CheckboxGroup(all_gpu_type_names, label="显卡型号", value=selected_gpu_type_names)
+        gr_gpu_checkbox_group = gr.CheckboxGroup([], label="显卡型号",
+                                                 value=selected_gpu_type_names)
         gr_gpu_region_matrix = gr.Matrix()
 
         with gr.Row():
@@ -66,35 +81,89 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             with gr.Column(scale=2):
                 stat_update_button = gr.Button("立即更新", size="sm")
 
+    # def update_matrix(gpu_type_names):
+    #     global selected_gpu_type_names
+    #     selected_gpu_type_names = gpu_type_names
+    #     return {
+    #         "headers": ["地区"] + [n for n in gpu_type_names],
+    #         "data": [
+    #             [r["region_name"]] + [
+    #                 all_region_list.get_region_stats([gn], [r["region_name"]])[0]["idle_gpu_num"] or ""
+    #                 for gn in gpu_type_names
+    #             ]
+    #             for r in all_region_list.get_region_stats()
+    #         ]
+    #     }
+    #
+    #
+    # def refresh_matrix(gpu_type_names):
+    #     global all_region_list, last_update_time
+    #     all_region_list = RegionList().update()
+    #     last_update_time = datetime.datetime.now()
+    #     bottom_text = f"以上是当前 AutoDL 官网查询到的 GPU 主机数量，" \
+    #                   f"更新时间：{last_update_time.strftime('%Y-%m-%d %H:%M:%S')}。"
+    #     return update_matrix(gpu_type_names), bottom_text
 
-        def update_matrix(gpu_type_names):
-            global selected_gpu_type_names
-            selected_gpu_type_names = gpu_type_names
+    def load_data(config=None):
+        if config is None:
+            config = Config().load()
+        print(f"{config.token!r}")
+        if config.token:
+            try:
+                RegionList().update()
+            except FailedError as e:
+                if "登录失败，请重试" in str(e):
+                    return {
+                        gr_token_input_group: gr.Group(visible=True),
+                        gr_token_view_group: gr.Group(visible=False),
+                        gr_token_input: gr.Textbox(value=config.token),
+                        gr_token_input_error: gr.Markdown(visible=True, value="登录失败，请检查 Token 后重试。"),
+                    }
+                else:
+                    raise
             return {
-                "headers": ["地区"] + [n for n in gpu_type_names],
-                "data": [
-                    [r["region_name"]] + [
-                        all_region_list.get_region_stats([gn], [r["region_name"]])[0]["idle_gpu_num"] or ""
-                        for gn in gpu_type_names
-                    ]
-                    for r in all_region_list.get_region_stats()
-                ]
+                gr_token_input_group: gr.Group(visible=False),
+                gr_token_view_group: gr.Group(visible=True),
+                gr_token_view_input: config.token[:6] + "******" + config.token[-6:],
+                gr_config_tab: gr.Tab(visible=True),
+                gr_stat_tab: gr.Tab(visible=True),
+                gr_token_input_error: gr.Markdown(visible=False),
+            }
+        else:
+            return {
+                gr_token_input_group: gr.Group(visible=True),
+                gr_token_view_group: gr.Group(visible=False),
+                gr_token_input: gr.Textbox(value=""),
+                gr_config_tab: gr.Tab(visible=False),
+                gr_stat_tab: gr.Tab(visible=False),
             }
 
 
-        def refresh_matrix(gpu_type_names):
-            global all_region_list, last_update_time
-            all_region_list = RegionList().update()
-            last_update_time = datetime.datetime.now()
-            bottom_text = f"以上是当前 AutoDL 官网查询到的 GPU 主机数量，" \
-                          f"更新时间：{last_update_time.strftime('%Y-%m-%d %H:%M:%S')}。"
-            return update_matrix(gpu_type_names), bottom_text
+    def save_token(token):
+        config = Config().load()
+        config.token = token
+        config.save()
+        autodl_client.load_config()
+        return load_data(config)
 
 
-        demo.load(update_matrix, inputs=[gr_gpu_checkbox_group], outputs=gr_gpu_region_matrix)
-        gr_gpu_checkbox_group.input(update_matrix, inputs=[gr_gpu_checkbox_group], outputs=gr_gpu_region_matrix)
-        stat_update_button.click(refresh_matrix, inputs=[gr_gpu_checkbox_group],
-                                 outputs=[gr_gpu_region_matrix, gr_bottom_text])
+    # gr_gpu_checkbox_group.input(update_matrix, inputs=[gr_gpu_checkbox_group], outputs=gr_gpu_region_matrix)
+    # stat_update_button.click(refresh_matrix, inputs=[gr_gpu_checkbox_group],
+    #                          outputs=[gr_gpu_region_matrix, gr_bottom_text])
+    #
+    # demo.load(update_matrix, inputs=[gr_gpu_checkbox_group], outputs=gr_gpu_region_matrix)
+
+    # gr_token_save_button.click(save_token, inputs=gr_token_input)
+
+    demo.load(load_data, outputs=[gr_token_input_group, gr_token_input, gr_token_input_error,
+                                  gr_token_view_group, gr_token_view_input, gr_config_tab, gr_stat_tab])
+
+    gr_token_save_button.click(save_token, inputs=[gr_token_input],
+                               outputs=[gr_token_input_group, gr_token_input, gr_token_input_error,
+                                        gr_token_view_group, gr_token_view_input, gr_config_tab, gr_stat_tab])
+    gr_token_clear_button.click(save_token, inputs=[gr.Textbox(visible=False)],
+                                outputs=[gr_token_input_group, gr_token_input, gr_token_input_error,
+                                         gr_token_view_group, gr_token_view_input, gr_config_tab, gr_stat_tab])
 
 if __name__ == "__main__":
     demo.launch()
