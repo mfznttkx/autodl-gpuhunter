@@ -118,15 +118,17 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             try:
                 RegionList().update()
             except FailedError as e:
-                if "登录失败，请重试" in str(e):
-                    return {
-                        gr_token_input_group: gr.Group(visible=True),
-                        gr_token_view_group: gr.Group(visible=False),
-                        gr_token_input: gr.Textbox(value=config.token),
-                        gr_token_input_error: gr.Markdown(visible=True, value="登录失败，请检查 Token 后重试。"),
-                    }
-                else:
-                    raise
+                error_message = str(e)
+                if "登录失败，请重试" in error_message:
+                    error_message = "登录失败，请检查 Token 后重试。"
+                elif "登陆超时" in error_message:
+                    error_message = "登录超时，请先打开 AutoDL.com 官网登录一下账号，然后返回并点击确定。"
+                return {
+                    gr_token_input_group: gr.Group(visible=True),
+                    gr_token_view_group: gr.Group(visible=False),
+                    gr_token_input: gr.Textbox(value=config.token),
+                    gr_token_input_error: gr.Markdown(visible=True, value=error_message),
+                }
             return {
                 gr_token_input_group: gr.Group(visible=False),
                 gr_token_view_group: gr.Group(visible=True),
