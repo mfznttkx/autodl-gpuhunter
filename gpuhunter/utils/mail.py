@@ -11,13 +11,13 @@ from main import logger
 @retry((smtplib.SMTPConnectError, smtplib.SMTPHeloError), 3, 5, backoff=3, logger=logger)
 def send_mail(receipt, subject, content=None, sender=None,
               smtp_host=None, smtp_port=465, smtp_username=None, smtp_password=None):
-    logger.debug(f'Send mail: {subject} -> {receipt}')
+    logger.debug(f"Send mail: {subject} -> {receipt}")
     msg = MIMEMultipart()
-    msg['Subject'] = subject
-    msg['From'] = sender
-    msg['To'] = receipt
+    msg["Subject"] = subject
+    msg["From"] = sender
+    msg["To"] = receipt
     if content:
-        msg.attach(MIMEText(content, 'html', 'utf-8'))
+        msg.attach(MIMEText(content, "html", "utf-8"))
     with smtplib.SMTP_SSL(smtp_host, smtp_port) as s:
         s.login(smtp_username, smtp_password)
         s.send_message(msg)
@@ -30,9 +30,9 @@ def get_text_body(msg):
         index = 0
         for part in msg.walk():
             ctype = part.get_content_type()
-            cdispo = str(part.get('Content-Disposition'))
+            cdispo = str(part.get("Content-Disposition"))
             # skip any text/plain (txt) attachments
-            if ctype == 'text/plain' and 'attachment' not in cdispo:
+            if ctype == "text/plain" and "attachment" not in cdispo:
                 body = part.get_payload(decode=True).decode(charsets[index])
                 break
             index += 1

@@ -86,7 +86,7 @@ class AutodlClient:
         api = "/api/v1/instance/timed/shutdown"
         body = {
             "instance_uuid": instance_uuid,
-            "shutdown_at": (shutdown_at.strftime('%Y-%m-%d %H:%M')
+            "shutdown_at": (shutdown_at.strftime("%Y-%m-%d %H:%M")
                             if isinstance(shutdown_at, (datetime.datetime, datetime.date))
                             else shutdown_at),
             **kwargs,
@@ -416,12 +416,12 @@ class AutodlClient:
     def list_request(self, api, body):
         page_index = 1
         while True:
-            body['page_index'] = page_index
+            body["page_index"] = page_index
             data = self.request(api, body=body)
-            for item in data['list']:
+            for item in data["list"]:
                 yield item
             page_index += 1
-            if page_index > data['max_page']:
+            if page_index > data["max_page"]:
                 break
             time.sleep(0.2)
 

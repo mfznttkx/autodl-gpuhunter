@@ -24,6 +24,7 @@ class DataObjectMixin:
     def save(self):
         with open(os.path.join(DATA_DIR, self.data_file), "w", encoding="utf-8") as f:
             json.dump(self.to_dict(), f, ensure_ascii=False, indent=2)
+            f.close()
         return self
 
     def load(self):
@@ -32,6 +33,7 @@ class DataObjectMixin:
             with open(filename, "r", encoding="utf-8") as f:
                 data = json.load(f)
                 self.__dict__.update(data)
+                f.close()
         return self
 
     def update(self):

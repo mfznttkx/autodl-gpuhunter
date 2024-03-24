@@ -1,7 +1,10 @@
+import os.path
+
 import gradio as gr
 
 from gpuhunter.autodl_client import FailedError, autodl_client
 from gpuhunter.data_object import RegionList, Config
+from main import LOGS_DIR
 
 css = """
 .block.error-message { padding: var(--block-padding); }
@@ -29,26 +32,73 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         gr_token_clear_button = gr.Button("退出", variant="secondary", size="sm")
 
     with gr.Tab("🌲 开始蹲守", visible=False) as gr_config_tab:
-        gr.CheckboxGroup(["RTX 4090", "RTX 3090", "RTX 4090"], label="显卡型号", info=""),
-        gr.CheckboxGroup(["西北B区", "北京B区"], label="地区", info=""),
-        gr.Button("🙈 现在开始", variant="primary", size="lg")
+        with gr.Group():
+            gr.CheckboxGroup(["RTX 4090 (28)", "RTX 3090", "RTX 4090"], label="显卡型号", info="")
+            gr.CheckboxGroup(["西北B区 (12)", "北京B区 (0)"], label="地区", info="")
+            gr.Radio(choices=[n for n in range(1, 13)], label="GPU 数量", value=1)
+
         with gr.Row():
-            with gr.Column(scale=8):
-                gr.Markdown("### 暂时还没有空闲的 GPU 主机。")
-                gr.Markdown("2024-03-02 15:03:34")
-            with gr.Column(scale=2):
-                gr.Button("停止", variant="stop", size="sm")
-        # 显卡型号： 多选
-        # 地区： 全部，多选
-        # 显卡数量
-        # 镜像
-        # 蹲到之后：立即租用，邮件通知  多选
+            with gr.Column():
+                gr.Slider(label="租用 GPU 主机数量", info="可选择 1-10 台")
+                gr.Radio(choices=["基础镜像", "社区镜像", "我的镜像"], label="启动镜像")
+                with gr.Row():
+                    gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
+                                show_label=False, info="框架名称")
+                    gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
+                                show_label=False, info="框架版本")
+                with gr.Row():
+                    gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
+                                show_label=False, info="Python 版本")
+                    gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
+                                show_label=False, info="Cuda 版本")
+
+                with gr.Accordion("扩容数据盘：50 GB", open=False):
+                    gr.Slider(info="可选择容量范围 0-60 GB", show_label=False)
+
+                with gr.Accordion("复制已有实例：adc5a6cc5a446a", open=False):
+                    gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
+                                show_label=False, info="选择要复制的实例")
+
+            with gr.Column():
+                with gr.Accordion("定时关机：今天 23:59", open=False):
+                    gr.Radio(choices=["今天 23:59", "8 小时", "12 小时", "24 小时", "不关机"], label="定时关机",
+                             info="创建实例时自动设置定时关机，防止忘记关闭后产生费用。")
+
+                with gr.Accordion("邮件通知：zhangsan@lisi.com", open=False):
+                    with gr.Row(equal_height=True):
+                        with gr.Group():
+                            gr.Textbox(label="发信邮箱", type="email")
+                            gr.Textbox(label="发信邮箱登录密码", type="password")
+                            gr.Textbox(label="SMTP 服务器")
+                        with gr.Column():
+                            gr.Textbox(label="收信邮箱", type="email", info="可以用收信邮箱自己发给自己")
+                            gr.Button("发送测试邮件", size="sm")
+                            gr.Markdown("## 发送成功！")
+
+                with gr.Accordion("更多选项", open=False):
+                    gr.Slider(minimum=1, maximum=60, value=10, step=1, label="扫描间隔时间",
+                              info="如果不是急需，请设置长一点的时间，显卡空出来也需要时间，同时请避免给 AutoDL.com 增加压力。")
+                    gr.Radio(choices=["关机", "不关机"], label="守到后将 Hunter 关机",
+                             info="成功后关闭运行此程序 (AutoDL GPU Hunter) 的机器，防止重复蹲守浪费资源。")
+
+        gr.Button("🙈 现在开始", variant="primary", size="lg")
+        gr.Button("🤚 停止", variant="stop", size="lg")
+        logs = gr.Textbox(label="🙉 正在蹲守", autoscroll=True, lines=10)
+
+
+        def read_logs():
+            with open(os.path.join(LOGS_DIR, "output.log"), "r") as f:
+                return f.read()
+
+
+        demo.load(read_logs, None, logs, every=1)
+
         # 立即租用：
         #   定时关机：第二天0点  租用xxx分钟后  不设置
-        #   开发者 Token（开发者 Token）
         #   复制已有实例：
         #   租用数量：3
         # 邮件通知：接受通知的邮箱，需要发送测试邮件的功能
+
         # 时间间隔：1分钟，10分钟（默认），30分钟，60分钟。（如果不是急需，请设置长一点的时间，避免给 autodl 增加压力）
         # 🙈 现在开始，🙉 正在蹲守（风险提示）
         # output：
@@ -87,7 +137,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                 **update_matrix(gpu_type_names),
                 gr_gpu_checkbox_group: gr.CheckboxGroup(choices=region_list.get_gpu_type_names(), value=gpu_type_names),
                 gr_stat_note: gr.Markdown(f"以上是当前 AutoDL 官网查询到的 GPU 主机数量，"
-                                          f"更新时间：{region_list.modified_time.strftime('%Y-%m-%d %H:%M:%S')}。"),
+                                          f'更新时间：{region_list.modified_time.strftime("%Y-%m-%d %H:%M:%S")}。'),
             }
 
 

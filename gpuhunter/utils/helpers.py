@@ -26,17 +26,17 @@ def url_set_params(url, **params):
 
 def snake_case(name):
     import re
-    name = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
-    name = re.sub('__([A-Z])', r'_\1', name)
-    name = re.sub('([a-z0-9])([A-Z])', r'\1_\2', name)
-    name = re.sub(r'[.\-\s]+', r'_', name)
-    name = name.strip('_').lower()
+    name = re.sub("(.)([A-Z][a-z]+)", r"\1_\2", name)
+    name = re.sub("__([A-Z])", r"_\1", name)
+    name = re.sub("([a-z0-9])([A-Z])", r"\1_\2", name)
+    name = re.sub(r"[.\-\s]+", r"_", name)
+    name = name.strip("_").lower()
     return name
 
 
 def camel_case(name):
     name = snake_case(name)
-    name = ''.join(word.title() for word in name.split('_'))
+    name = "".join(word.title() for word in name.split("_"))
     return name
 
 
@@ -46,7 +46,7 @@ def time_of_day(d, t):
     elif isinstance(d, datetime.datetime):
         return d.replace(hour=t.hour, minute=t.minute, second=t.second, microsecond=t.microsecond)
     else:
-        raise ValueError('Unsupported time type')
+        raise ValueError("Unsupported time type")
 
 
 def end_of_day(d):

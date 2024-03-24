@@ -144,7 +144,7 @@ def try_to_create_instances():
                         autodl_client.update_instance_shutdown(instance_uuid, shutdown_at)
                     instance_name = f'{machine["region_name"]} / {machine["machine_alias"]}' \
                                     f' ({machine["gpu_name"]}, {instance_uuid})'
-                    logger.info(f'已创建实例：{instance_name}。'
+                    logger.info(f"已创建实例：{instance_name}。"
                                 f" Instance has been created: {instance_name}.")
                     created_instance_names.append(instance_name)
                 except FailedError:
