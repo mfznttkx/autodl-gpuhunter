@@ -33,65 +33,96 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
     with gr.Tab("🌲 开始蹲守", visible=False) as gr_config_tab:
         with gr.Group():
-            gr.CheckboxGroup(["RTX 4090 (28)", "RTX 3090", "RTX 4090"], label="显卡型号", info="")
-            gr.CheckboxGroup(["西北B区 (12)", "北京B区 (0)"], label="地区", info="")
-            gr.Radio(choices=[n for n in range(1, 13)], label="GPU 数量", value=1)
+            gr_gpu_type = gr.CheckboxGroup(["RTX 4090 (28)", "RTX 3090", "RTX 4090"], label="显卡型号", info="")
+            gr_region = gr.CheckboxGroup(["西北B区 (12)", "北京B区 (0)"], label="地区", info="")
+            gr_gpu_num = gr.Radio(choices=[n for n in range(1, 13)], label="GPU 数量", value=1)
 
         with gr.Row():
             with gr.Column():
-                gr.Slider(label="租用 GPU 主机数量", info="可选择 1-10 台")
-                gr.Radio(choices=["基础镜像", "社区镜像", "我的镜像"], label="启动镜像")
-                with gr.Row():
+                gr_instance_num = gr.Slider(label="租用 GPU 主机数量", info="可选择 1-10 台")
+                gr_image_category = gr.Radio(choices=["基础镜像", "社区镜像", "我的镜像"], label="启动镜像")
+                with gr.Group() as gr_base_image_group:
+                    with gr.Row():
+                        gr_base_image_framework_name = gr.Dropdown(
+                            choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
+                            show_label=False, info="框架名称")
+                        gr_base_image_framework_version = gr.Dropdown(
+                            choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
+                            show_label=False, info="框架版本")
+                    with gr.Row():
+                        gr_base_image_python_version = gr.Dropdown(
+                            choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
+                            show_label=False, info="Python 版本")
+                        gr_base_image_cuda_version = gr.Dropdown(
+                            choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
+                            show_label=False, info="Cuda 版本")
+                with gr.Group() as gr_shared_image_group:
                     gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
                                 show_label=False, info="框架名称")
+                with gr.Group() as gr_private_image_group:
                     gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
-                                show_label=False, info="框架版本")
-                with gr.Row():
-                    gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
-                                show_label=False, info="Python 版本")
-                    gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
-                                show_label=False, info="Cuda 版本")
+                                show_label=False, info="框架名称")
 
-                with gr.Accordion("扩容数据盘：50 GB", open=False):
-                    gr.Slider(info="可选择容量范围 0-60 GB", show_label=False)
+                with gr.Accordion("扩容数据盘：50 GB", open=False) as gr_expand_disk_accordion:
+                    gr_expand_disk_gb = gr.Slider(info="可选择容量范围 0-60 GB", show_label=False)
 
-                with gr.Accordion("复制已有实例：adc5a6cc5a446a", open=False):
-                    gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
-                                show_label=False, info="选择要复制的实例")
+                with gr.Accordion("复制已有实例：adc5a6cc5a446a", open=False) as gr_clone_instance_accordion:
+                    gr_clone_instance_uuid = gr.Dropdown(
+                        choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
+                        show_label=False, info="选择要复制的实例")
 
             with gr.Column():
-                with gr.Accordion("定时关机：今天 23:59", open=False):
-                    gr.Radio(choices=["今天 23:59", "8 小时", "12 小时", "24 小时", "不关机"], label="定时关机",
-                             info="创建实例时自动设置定时关机，防止忘记关闭后产生费用。")
+                with gr.Accordion("定时关机：今天 23:59", open=False) as gr_shutdown_time_accordion:
+                    gr_shutdown_time_type = gr.Radio(choices=["今天 23:59", "8 小时", "12 小时", "24 小时", "不关机"],
+                                                     label="定时关机",
+                                                     info="创建实例时自动设置定时关机，防止忘记关闭后产生费用。")
 
-                with gr.Accordion("邮件通知：zhangsan@lisi.com", open=False):
+                with gr.Accordion("邮件通知：zhangsan@lisi.com", open=False) as gr_email_notify_accordion:
                     with gr.Row(equal_height=True):
                         with gr.Group():
-                            gr.Textbox(label="发信邮箱", type="email")
-                            gr.Textbox(label="发信邮箱登录密码", type="password")
-                            gr.Textbox(label="SMTP 服务器")
+                            gr_email_notify_sender = gr.Textbox(label="发信邮箱", type="email")
+                            gr_email_notify_smtp_password = gr.Textbox(label="发信邮箱登录密码", type="password")
+                            gr_email_notify_smtp_server = gr.Textbox(label="SMTP 服务器")
                         with gr.Column():
-                            gr.Textbox(label="收信邮箱", type="email", info="可以用收信邮箱自己发给自己")
-                            gr.Button("发送测试邮件", size="sm")
-                            gr.Markdown("## 发送成功！")
+                            gr_email_notify_receipt = gr.Textbox(label="收信邮箱", type="email",
+                                                                 info="可以用收信邮箱自己发给自己")
+                            gr_email_notify_send_button = gr.Button("发送测试邮件", size="sm")
+                            gr_email_notify_send_output = gr.Markdown("## 发送成功！")
 
                 with gr.Accordion("更多选项", open=False):
-                    gr.Slider(minimum=1, maximum=60, value=10, step=1, label="扫描间隔时间",
-                              info="如果不是急需，请设置长一点的时间，显卡空出来也需要时间，同时请避免给 AutoDL.com 增加压力。")
-                    gr.Radio(choices=["关机", "不关机"], label="守到后将 Hunter 关机",
-                             info="成功后关闭运行此程序 (AutoDL GPU Hunter) 的机器，防止重复蹲守浪费资源。")
+                    gr_scan_interval = gr.Slider(minimum=1, maximum=60, value=10, step=1, label="扫描间隔时间",
+                                                 info="如果不是急需，请设置长一点的时间，显卡空出来也需要时间，同时请避免给 AutoDL.com 增加压力。")
+                    gr_shutdown_hunter_after_success = gr.Radio(choices=["关机", "不关机"],
+                                                                label="守到后将 Hunter 关机",
+                                                                info="成功后关闭运行此程序 (AutoDL GPU Hunter) 的机器，防止重复蹲守浪费资源。")
 
-        gr.Button("🙈 现在开始", variant="primary", size="lg")
-        gr.Button("🤚 停止", variant="stop", size="lg")
-        logs = gr.Textbox(label="🙉 正在蹲守", autoscroll=True, lines=10)
+        gr_hunt_start_button = gr.Button("🙈 现在开始", variant="primary", size="lg")
+        gr_hunt_stop_button = gr.Button("🤚 停止", variant="stop", size="lg")
+        gr_hunt_logs = gr.Textbox(label="🙉 正在蹲守", autoscroll=True, lines=10)
 
 
-        def read_logs():
+        def read_output_logs():
             with open(os.path.join(LOGS_DIR, "output.log"), "r") as f:
                 return f.read()
 
 
-        demo.load(read_logs, None, logs, every=1)
+        # def load_stat(gpu_type_names=None, region_list=None):
+        #     region_list = region_list or RegionList().load()
+        #     gpu_type_names = gpu_type_names or [
+        #         "RTX 4090",
+        #         "RTX 3090",
+        #         "RTX 3080 Ti",
+        #         "RTX 3080",
+        #         "RTX 3060",
+        #     ]
+        #     return {
+        #         **update_matrix(gpu_type_names),
+        #         gr_gpu_checkbox_group: gr.CheckboxGroup(choices=region_list.get_gpu_type_names(), value=gpu_type_names),
+        #         gr_stat_note: gr.Markdown(f"以上是当前 AutoDL 官网查询到的 GPU 主机数量，"
+        #                                   f'更新时间：{region_list.modified_time.strftime("%Y-%m-%d %H:%M:%S")}。'),
+        #     }
+
+        demo.load(read_output_logs, None, gr_hunt_logs, every=1)
 
         # 立即租用：
         #   定时关机：第二天0点  租用xxx分钟后  不设置

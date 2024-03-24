@@ -14,11 +14,11 @@ sys.path.append(BASE_DIR)
 
 from gpuhunter.utils.logging import get_logger
 
-logger = get_logger(__name__, os.path.join(BASE_DIR, "runtime","logs"))
+logger = get_logger(__name__, os.path.join(BASE_DIR, "runtime", "logs"))
 
 
 def get_command_names():
-    commands_dir = os.path.join(BASE_DIR, "gpuhunter","commands")
+    commands_dir = os.path.join(BASE_DIR, "gpuhunter", "commands")
     command_names = [
         filename.stem
         for filename in Path(commands_dir).glob("*.py")
