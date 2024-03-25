@@ -255,6 +255,7 @@ class AutodlClient:
         :param status: creating | starting | running | re_initializing | ...
         :return: [
           {
+            "uuid": "eaf141be95-b0475166",
             "machine_id": "eaf141be95",
             "machine_alias": "091机",
             "region_sign": "west-X",

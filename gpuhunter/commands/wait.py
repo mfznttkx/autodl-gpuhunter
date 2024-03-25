@@ -48,6 +48,9 @@ def try_to_create_instances():
     )
     from gpuhunter.data_object import Config, RegionList
 
+    # todo 确保机器的数据盘扩容量足够
+    # todo 确保要复制的实例已关机
+
     # 加载数据和配置
     config = Config().load()
     region_list = RegionList().update()

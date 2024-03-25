@@ -33,43 +33,38 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
     with gr.Tab("🌲 开始蹲守", visible=False) as gr_config_tab:
         with gr.Group():
-            gr_gpu_type = gr.CheckboxGroup(["RTX 4090 (28)", "RTX 3090", "RTX 4090"], label="显卡型号", info="")
-            gr_region = gr.CheckboxGroup(["西北B区 (12)", "北京B区 (0)"], label="地区", info="")
+            gr_gpu_type = gr.CheckboxGroup(label="显卡型号")
+            gr_region = gr.CheckboxGroup(label="地区")
             gr_gpu_num = gr.Radio(choices=[n for n in range(1, 13)], label="GPU 数量", value=1)
 
         with gr.Row():
             with gr.Column():
-                gr_instance_num = gr.Slider(label="租用 GPU 主机数量", info="可选择 1-10 台")
-                gr_image_category = gr.Radio(choices=["基础镜像", "社区镜像", "我的镜像"], label="启动镜像")
-                with gr.Group() as gr_base_image_group:
-                    with gr.Row():
-                        gr_base_image_framework_name = gr.Dropdown(
-                            choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
-                            show_label=False, info="框架名称")
-                        gr_base_image_framework_version = gr.Dropdown(
-                            choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
-                            show_label=False, info="框架版本")
-                    with gr.Row():
-                        gr_base_image_python_version = gr.Dropdown(
-                            choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
-                            show_label=False, info="Python 版本")
-                        gr_base_image_cuda_version = gr.Dropdown(
-                            choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
-                            show_label=False, info="Cuda 版本")
-                with gr.Group() as gr_shared_image_group:
-                    gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
-                                show_label=False, info="框架名称")
-                with gr.Group() as gr_private_image_group:
-                    gr.Dropdown(choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
-                                show_label=False, info="框架名称")
+                gr_instance_num = gr.Slider(label="租用 GPU 主机数量", info="可选择 1-20 台", minimum=1, maximum=20,
+                                            step=1, value=1)
+                with gr.Group():
+                    gr_image_category = gr.Radio(
+                        choices=[("基础镜像", "base"), ("社区镜像", "shared"), ("我的镜像", "private")],
+                        label="启动镜像",
+                    )
+                    with gr.Group(visible=False) as gr_base_image_group:
+                        gr_base_image = gr.Dropdown(show_label=False, info="请选择镜像")
+                    with gr.Group(visible=False) as gr_shared_image_group:
+                        gr_shared_image_search = gr.Textbox(show_label=False, info="请填写关键字查找镜像")
+                        gr_shared_image = gr.Dropdown(show_label=False, info="请选择镜像")
+                    with gr.Group(visible=False) as gr_private_image_group:
+                        gr_private_image = gr.Dropdown(show_label=False, info="请选择镜像")
 
-                with gr.Accordion("扩容数据盘：50 GB", open=False) as gr_expand_disk_accordion:
-                    gr_expand_disk_gb = gr.Slider(info="可选择容量范围 0-60 GB", show_label=False)
+                with gr.Accordion(open=False) as gr_expand_disk_accordion:
+                    gr_expand_disk_gb = gr.Slider(info="可选择扩容范围 0-3000 GB，按此扩容量挑选机器并要求扩容",
+                                                  minimum=0, maximum=3000, step=1, value=0,
+                                                  show_label=False)
 
-                with gr.Accordion("复制已有实例：adc5a6cc5a446a", open=False) as gr_clone_instance_accordion:
-                    gr_clone_instance_uuid = gr.Dropdown(
-                        choices=["AUTOMATIC1111/stable-diffusion-webui/tzwm_sd_webui_A1111 / v18"],
-                        show_label=False, info="选择要复制的实例")
+                with gr.Accordion(open=False) as gr_clone_instance_accordion:
+                    with gr.Group():
+                        with gr.Row():
+                            gr_clone_instance_uuid = gr.Dropdown(show_label=False,
+                                                                 info="选择实例 (只能选择已关机的实例)", min_width=550)
+                            gr_clone_instance_refresh_button = gr.Button("刷新", size="sm", min_width=50)
 
             with gr.Column():
                 with gr.Accordion("定时关机：今天 23:59", open=False) as gr_shutdown_time_accordion:
@@ -101,27 +96,153 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         gr_hunt_logs = gr.Textbox(label="🙉 正在蹲守", autoscroll=True, lines=10)
 
 
+        def load_region_options(gpu_type_names=None):
+            region_list = RegionList().load()
+            return {
+                gr_region: gr.CheckboxGroup(
+                    choices=[(f'{r["region_name"]} ({r["idle_gpu_num"]})', r["region_name"])
+                             for r in region_list.get_region_stats(gpu_types=gpu_type_names or [])
+                             if r["total_gpu_num"] > 0],
+                ),
+            }
+
+
+        def load_gpu_options():
+            region_list = RegionList().load()
+            return {
+                gr_gpu_type: gr.CheckboxGroup(
+                    choices=[(f'{g["gpu_type"]} ({g["idle_gpu_num"]})', g["gpu_type"])
+                             for g in region_list.get_gpu_stats()
+                             if g["total_gpu_num"] > 0],
+                ),
+            }
+
+
+        def load_gpu_region_options():
+            return {
+                **load_gpu_options(),
+                **load_region_options(),
+            }
+
+
+        def load_image_options(image_category):
+            image_option_groups = {
+                gr_base_image_group: gr.Group(visible=False),
+                gr_shared_image_group: gr.Group(visible=False),
+                gr_private_image_group: gr.Group(visible=False),
+                gr_base_image: gr.Dropdown(),
+                gr_shared_image: gr.Dropdown(),
+                gr_private_image: gr.Dropdown(),
+            }
+            if image_category == "base":
+                base_images = autodl_client.get_base_images()
+                return {
+                    **image_option_groups,
+                    gr_base_image_group: gr.Group(visible=True),
+                    gr_base_image: gr.Dropdown(choices=[
+                        f'{f["label"]} / {fv["label"]} / {p["label"]} / {c["label"]}'
+                        for f in base_images
+                        for fv in f["children"]
+                        for p in fv["children"]
+                        for c in p["children"]
+
+                    ])
+                }
+            elif image_category == "shared":
+                return {
+                    **image_option_groups,
+                    gr_shared_image_group: gr.Group(visible=True),
+                }
+            elif image_category == "private":
+                private_images = autodl_client.get_private_images()
+                return {
+                    **image_option_groups,
+                    gr_private_image_group: gr.Group(visible=True),
+                    gr_private_image: gr.Dropdown(choices=[
+                        i["name"] for i in private_images
+                    ])
+                }
+            else:
+                return image_option_groups
+
+
+        def load_shared_image_options(shared_image_search):
+            shared_images = autodl_client.get_shared_images(shared_image_search)
+            return {
+                gr_shared_image: gr.Dropdown(choices=[
+                    f'{i["uuid"]} / v{v["version"]} ({i["username"]})'
+                    for i in shared_images
+                    for v in i["version_info"]
+                ]),
+            }
+
+
+        def update_disk_accordion(expand_disk_gb):
+            return {
+                gr_expand_disk_accordion: gr.Accordion(
+                    label=f"数据盘：免费 50 GB + 扩容 {expand_disk_gb} GB" if expand_disk_gb > 0 else "扩容数据盘")
+            }
+
+
+        def load_clone_instance_uuid_options():
+            return {
+                gr_clone_instance_uuid: gr.Dropdown(choices=[
+                    f'{i["region_name"]} / {i["machine_alias"]} ({i["uuid"]})'
+                    for i in autodl_client.list_instance("shutdown")
+                ])
+            }
+
+
+        def update_clone_instance_accordion(clone_instance_uuid):
+            return {
+                gr_clone_instance_accordion: gr.Accordion(
+                    label=f'复制已有实例{f"：{clone_instance_uuid}" if clone_instance_uuid else ""}')
+            }
+
+
+        def start():
+            pass
+
+
         def read_output_logs():
             with open(os.path.join(LOGS_DIR, "output.log"), "r") as f:
                 return f.read()
 
 
-        # def load_stat(gpu_type_names=None, region_list=None):
-        #     region_list = region_list or RegionList().load()
-        #     gpu_type_names = gpu_type_names or [
-        #         "RTX 4090",
-        #         "RTX 3090",
-        #         "RTX 3080 Ti",
-        #         "RTX 3080",
-        #         "RTX 3060",
-        #     ]
-        #     return {
-        #         **update_matrix(gpu_type_names),
-        #         gr_gpu_checkbox_group: gr.CheckboxGroup(choices=region_list.get_gpu_type_names(), value=gpu_type_names),
-        #         gr_stat_note: gr.Markdown(f"以上是当前 AutoDL 官网查询到的 GPU 主机数量，"
-        #                                   f'更新时间：{region_list.modified_time.strftime("%Y-%m-%d %H:%M:%S")}。'),
-        #     }
+        # GPU 和地区
+        gr_gpu_type.change(load_region_options, [gr_gpu_type], outputs=[gr_region])
+        demo.load(load_gpu_region_options, None, [gr_gpu_type, gr_region])
 
+        # 镜像选择
+        gr_image_category.change(load_image_options,
+                                 [gr_image_category],
+                                 [
+                                     gr_base_image_group, gr_shared_image_group, gr_private_image_group,
+                                     gr_base_image, gr_shared_image,
+                                     gr_private_image
+                                 ])
+
+        gr_shared_image_search.blur(load_shared_image_options, [gr_shared_image_search], [gr_shared_image])
+
+        # 扩展磁盘
+        gr_expand_disk_gb.change(update_disk_accordion, [gr_expand_disk_gb], [gr_expand_disk_accordion],
+                                 show_progress=False)
+
+        demo.load(update_disk_accordion, [gr_expand_disk_gb], [gr_expand_disk_accordion])
+
+        # 复制已有实例
+        gr_clone_instance_refresh_button.click(load_clone_instance_uuid_options, None,
+                                               [gr_clone_instance_uuid])
+        gr_clone_instance_uuid.change(update_clone_instance_accordion, [gr_clone_instance_uuid],
+                                      [gr_clone_instance_accordion])
+        demo.load(update_clone_instance_accordion, [gr_clone_instance_uuid], [gr_clone_instance_accordion])
+        demo.load(load_clone_instance_uuid_options, None, [gr_clone_instance_uuid])
+
+        # 开始
+        gr_hunt_start_button.click(start, [gr_gpu_type, gr_region, gr_gpu_num, gr_instance_num,
+                                           gr_base_image, gr_shared_image, gr_private_image])
+
+        # 日志
         demo.load(read_output_logs, None, gr_hunt_logs, every=1)
 
         # 立即租用：
