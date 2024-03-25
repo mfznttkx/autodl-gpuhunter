@@ -1,15 +1,18 @@
+import json
 import os.path
+import re
 
 import gradio as gr
 
 from gpuhunter.autodl_client import FailedError, autodl_client
 from gpuhunter.data_object import RegionList, Config
+from gpuhunter.utils.helpers import json_dumps, validate_email
 from main import LOGS_DIR
 
 css = """
 .block.error-message, .block.success-message { padding: var(--block-padding); }
 .block.error-message p, .block.success-message p { font-weight: bold; margin: 0; }
-.block.error-message p { color: var(--error-icon-color);}
+.error-message ul li, .block.error-message p { color: var(--error-icon-color);}
 """
 with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"), css=css) as demo:
     gr.Markdown(
@@ -36,8 +39,8 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         with gr.Row():
             with gr.Column():
                 with gr.Group():
-                    gr_gpu_type = gr.CheckboxGroup(label="显卡型号")
-                    gr_region = gr.CheckboxGroup(label="地区")
+                    gr_gpu_types = gr.CheckboxGroup(label="显卡型号")
+                    gr_regions = gr.CheckboxGroup(label="地区")
                     gr_gpu_num = gr.Radio(choices=[n for n in range(1, 13)], label="GPU 个数", value=1)
 
             with gr.Column():
@@ -64,10 +67,12 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                 with gr.Accordion(open=False) as gr_clone_instance_accordion:
                     with gr.Group():
                         with gr.Row():
-                            gr_clone_instance_uuid = gr.Dropdown(show_label=False,
-                                                                 info="选择实例 (只能选择已关机的实例)", min_width=550)
+                            gr_clone_instance = gr.Dropdown(show_label=False,
+                                                            info="选择实例 (只能选择：同地区、已关机的实例)",
+                                                            min_width=550)
                             gr_clone_instance_refresh_button = gr.Button("刷新", size="sm", min_width=50)
-
+                        gr_copy_data_after_clone = gr.Checkbox(label="克隆后复制数据盘", value=True)
+                        gr_keep_address_after_clone = gr.Checkbox(label="克隆后保持服务网址", value=True)
                 with gr.Accordion(open=False) as gr_shutdown_time_accordion:
                     gr_shutdown_time_type = gr.Radio(
                         show_label=False,
@@ -77,7 +82,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
                 with gr.Accordion(open=False) as gr_email_notify_accordion:
                     with gr.Group():
-                        with gr.Row():
+                        with gr.Row(equal_height=True):
                             with gr.Group():
                                 gr_email_notify_sender = gr.Textbox(label="发信/收信邮箱", type="email")
                                 gr_email_notify_smtp_password = gr.Textbox(label="发信密码", type="password",
@@ -94,15 +99,16 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                         label="守到后将 Hunter 关机",
                         info="成功后可以关闭运行此程序 (AutoDL GPU Hunter) 的机器，防止重复蹲守浪费资源。")
 
-        gr_hunt_start_button = gr.Button("🙈 开始蹲守", variant="primary", size="lg")
-        gr_hunt_stop_button = gr.Button("🤚 停止", variant="stop", size="lg")
-        gr_hunt_logs = gr.Textbox(label="🙉 正在蹲守", autoscroll=True, lines=10)
+        gr_hunting_start_button = gr.Button("🙈 开始蹲守", variant="primary", size="lg")
+        gr_hunting_error = gr.Markdown(elem_classes=["error-message"], visible=False)
+        gr_hunting_stop_button = gr.Button("🤚 停止", variant="stop", size="lg", visible=False)
+        gr_hunting_logs = gr.Textbox(label="🙉 正在蹲守", autoscroll=True, lines=10, visible=False)
 
 
         def load_region_options(gpu_type_names=None):
             region_list = RegionList().load()
             return {
-                gr_region: gr.CheckboxGroup(
+                gr_regions: gr.CheckboxGroup(
                     choices=[(f'{r["region_name"]} ({r["idle_gpu_num"]})', r["region_name"])
                              for r in region_list.get_region_stats(gpu_types=gpu_type_names or [])
                              if r["total_gpu_num"] > 0],
@@ -113,7 +119,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         def load_gpu_options():
             region_list = RegionList().load()
             return {
-                gr_gpu_type: gr.CheckboxGroup(
+                gr_gpu_types: gr.CheckboxGroup(
                     choices=[(f'{g["gpu_type"]} ({g["idle_gpu_num"]})', g["gpu_type"])
                              for g in region_list.get_gpu_stats()
                              if g["total_gpu_num"] > 0],
@@ -143,7 +149,8 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                     **image_option_groups,
                     gr_base_image_group: gr.Group(visible=True),
                     gr_base_image: gr.Dropdown(choices=[
-                        f'{f["label"]} / {fv["label"]} / {p["label"]} / {c["label"]}'
+                        (f'{f["label"]} / {fv["label"]} / {p["label"]} / {c["label"]}',
+                         json_dumps({"base_image_labels": [f["label"], fv["label"], p["label"], c["label"]]}))
                         for f in base_images
                         for fv in f["children"]
                         for p in fv["children"]
@@ -162,7 +169,12 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                     **image_option_groups,
                     gr_private_image_group: gr.Group(visible=True),
                     gr_private_image: gr.Dropdown(choices=[
-                        i["name"] for i in private_images
+                        (f'{i["name"]} ({i["image_uuid"]})',
+                         json_dumps({
+                             "private_image_uuid": i["image_uuid"],
+                             "private_image_name": i["name"],
+                         }))
+                        for i in private_images
                     ])
                 }
             else:
@@ -173,7 +185,12 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             shared_images = autodl_client.get_shared_images(shared_image_search)
             return {
                 gr_shared_image: gr.Dropdown(choices=[
-                    f'{i["uuid"]} / v{v["version"]} ({i["username"]})'
+                    (f'{i["uuid"]} / v{v["version"]} ({i["username"]})',
+                     json_dumps({
+                         "shared_image_keyword": i["uuid"],
+                         "shared_image_username_keyword": i["username"],
+                         "shared_image_version": str(v["version"]),
+                     }))
                     for i in shared_images
                     for v in i["version_info"]
                 ]),
@@ -187,22 +204,33 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             }
 
 
-        def load_clone_instance_uuid_options():
+        def load_clone_instance_options():
+            def get_label(image):
+                return f'{image["region_name"]} / {image["machine_alias"]} ({image["uuid"]})'
+
             return {
-                gr_clone_instance_uuid: gr.Dropdown(choices=[
+                gr_clone_instance: gr.Dropdown(choices=[
                     ("无", None),
                     *[
-                        (f'{i["region_name"]} / {i["machine_alias"]} ({i["uuid"]})', i["uuid"])
+                        (get_label(i),
+                         json_dumps({
+                             "label": get_label(i),
+                             "uuid": i["uuid"],
+                         }))
                         for i in autodl_client.list_instance("shutdown")
                     ]
                 ])
             }
 
 
-        def update_clone_instance_accordion(clone_instance_uuid):
+        def update_clone_instance_accordion(clone_instance):
+            clone_instance_label = ""
+            if clone_instance:
+                clone_instance_info = json.loads(clone_instance)
+                clone_instance_label = clone_instance_info["label"]
             return {
                 gr_clone_instance_accordion: gr.Accordion(
-                    label=f'复制已有实例{f"：{clone_instance_uuid}" if clone_instance_uuid else ""}')
+                    label=f'克隆现有实例{f"：{clone_instance_label}" if clone_instance_label else ""}')
             }
 
 
@@ -236,12 +264,125 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             }
 
 
-        def start():
-            # todo 校验参数
-            # todo 保存设置
-            # todo 启动进程
-            # todo 监控进程
-            pass
+        def hunting_start(gpu_types, regions, gpu_num, instance_num, image_category, base_image, shared_image,
+                          private_image,
+                          expand_disk_gb, clone_instance, copy_data_after_clone, keep_address_after_clone,
+                          shutdown_time_type, email_notify_sender,
+                          email_notify_smtp_password, email_notify_smtp_server, scan_interval,
+                          shutdown_hunter_after_success):
+            error_messages = []
+            if not gpu_types:
+                error_messages.append("请选择显卡型号")
+            if not regions:
+                error_messages.append("请选择地区")
+            if not gpu_num or gpu_num <= 0 or gpu_num > 12:
+                error_messages.append("请选择有效的 GPU 个数")
+            if not instance_num or instance_num <= 0 or instance_num > 20:
+                error_messages.append("请选择有效的 GPU 主机数量")
+            if not image_category:
+                error_messages.append("请选择启动镜像")
+            else:
+                if image_category == "base" and not base_image \
+                        or image_category == "shared" and not shared_image \
+                        or image_category == "private" and not private_image:
+                    error_messages.append("请选择镜像")
+            if not shutdown_time_type:
+                error_messages.append("请选择是否定时关机")
+            if email_notify_sender:
+                try:
+                    validate_email(email_notify_sender)
+                except ValueError:
+                    error_messages.append("邮件地址不正确")
+                if not email_notify_smtp_password:
+                    error_messages.append("请填写发信密码")
+                if not email_notify_smtp_server:
+                    error_messages.append("请填写 SMTP 服务器地址")
+                else:
+                    if ":" not in email_notify_smtp_server:
+                        email_notify_smtp_server = email_notify_smtp_server + ":465"
+
+            if len(error_messages) == 0:
+                config = Config().load()
+
+                config.region_names = regions
+                config.gpu_type_names = gpu_types
+                config.gpu_idle_num = gpu_num
+                config.instance_num = instance_num
+
+                config.base_image_labels = []
+                config.shared_image_keyword = ""
+                config.shared_image_username_keyword = ""
+                config.shared_image_version = ""
+                config.private_image_uuid = ""
+                config.private_image_name = ""
+                image_info_json = None
+                if image_category == "base":
+                    image_info_json = base_image
+                elif image_category == "shared":
+                    image_info_json = shared_image
+                elif image_category == "private":
+                    image_info_json = private_image
+                if image_info_json:
+                    image_info = json.loads(image_info_json)
+                    for k, v in image_info.items():
+                        setattr(config, k, v)
+
+                config.expand_data_disk = expand_disk_gb * 1073741824
+
+                if clone_instance:
+                    clone_instance_info = json.loads(clone_instance)
+                    config.clone_instance_uuid = clone_instance_info["uuid"]
+                    config.copy_data_disk_after_clone = copy_data_after_clone
+                    config.keep_src_user_service_address_after_clone = keep_address_after_clone
+                else:
+                    config.clone_instance_uuid = ""
+                    config.copy_data_disk_after_clone = False
+                    config.keep_src_user_service_address_after_clone = False
+
+                config.shutdown_instance_today = False
+                config.shutdown_instance_after_hours = 0
+                if shutdown_time_type == "今晚 23:59":
+                    config.shutdown_instance_today = True
+                elif shutdown_time_type.endswith("小时"):
+                    config.shutdown_instance_after_hours = int(re.findall("^\\d+", shutdown_time_type)[0])
+
+                config.shutdown_hunter_after_finished = shutdown_hunter_after_success
+                config.retry_interval_minutes = max(1, scan_interval)
+
+                if email_notify_sender:
+                    config.mail_notify = True
+                    config.mail_receipt = email_notify_sender
+                    config.mail_sender = email_notify_sender
+                    config.mail_smtp_host, config.mail_smtp_port = email_notify_smtp_server.split(":")
+                    config.mail_smtp_username = email_notify_sender
+                    config.mail_smtp_password = email_notify_smtp_password
+                else:
+                    config.mail_notify = False
+                    config.mail_receipt = ""
+                    config.mail_sender = ""
+                    config.mail_smtp_host = ""
+                    config.mail_smtp_port = ""
+                    config.mail_smtp_username = ""
+                    config.mail_smtp_password = ""
+                print(config.to_dict())
+
+                # todo 校验参数
+                # todo 保存设置
+                # todo 启动进程
+                # todo 监控进程
+                return {
+                    gr_hunting_start_button: gr.Button(visible=False),
+                    gr_hunting_error: gr.Markdown(visible=False),
+                    gr_hunting_stop_button: gr.Button(visible=True),
+                    gr_hunting_logs: gr.Textbox(visible=True),
+                }
+            else:
+                return {
+                    gr_hunting_start_button: gr.Button(visible=True),
+                    gr_hunting_error: gr.Markdown(visible=True, value="\n".join([f"- {m}" for m in error_messages])),
+                    gr_hunting_stop_button: gr.Button(visible=False),
+                    gr_hunting_logs: gr.Textbox(visible=False),
+                }
 
 
         def read_output_logs():
@@ -250,8 +391,8 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
 
         # GPU 和地区
-        gr_gpu_type.change(load_region_options, [gr_gpu_type], outputs=[gr_region])
-        demo.load(load_gpu_region_options, None, [gr_gpu_type, gr_region])
+        gr_gpu_types.change(load_region_options, [gr_gpu_types], outputs=[gr_regions])
+        demo.load(load_gpu_region_options, None, [gr_gpu_types, gr_regions])
 
         # 镜像选择
         gr_image_category.change(load_image_options,
@@ -271,12 +412,12 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         demo.load(update_disk_accordion, [gr_expand_disk_gb], [gr_expand_disk_accordion])
 
         # 复制已有实例
-        gr_clone_instance_refresh_button.click(load_clone_instance_uuid_options, None,
-                                               [gr_clone_instance_uuid])
-        gr_clone_instance_uuid.change(update_clone_instance_accordion, [gr_clone_instance_uuid],
-                                      [gr_clone_instance_accordion])
-        demo.load(update_clone_instance_accordion, [gr_clone_instance_uuid], [gr_clone_instance_accordion])
-        demo.load(load_clone_instance_uuid_options, None, [gr_clone_instance_uuid])
+        gr_clone_instance_refresh_button.click(load_clone_instance_options, None,
+                                               [gr_clone_instance])
+        gr_clone_instance.change(update_clone_instance_accordion, [gr_clone_instance],
+                                 [gr_clone_instance_accordion])
+        demo.load(update_clone_instance_accordion, [gr_clone_instance], [gr_clone_instance_accordion])
+        demo.load(load_clone_instance_options, None, [gr_clone_instance])
 
         # 定时关机
         demo.load(update_shutdown_time_accordion, [gr_shutdown_time_type], [gr_shutdown_time_accordion])
@@ -293,11 +434,34 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                                            gr_email_notify_send_output])
 
         # 开始
-        gr_hunt_start_button.click(start, [gr_gpu_type, gr_region, gr_gpu_num, gr_instance_num,
-                                           gr_base_image, gr_shared_image, gr_private_image])
+        gr_hunting_start_button.click(hunting_start, [
+            gr_gpu_types,
+            gr_regions,
+            gr_gpu_num,
+            gr_instance_num,
+            gr_image_category,
+            gr_base_image,
+            gr_shared_image,
+            gr_private_image,
+            gr_expand_disk_gb,
+            gr_clone_instance,
+            gr_copy_data_after_clone,
+            gr_keep_address_after_clone,
+            gr_shutdown_time_type,
+            gr_email_notify_sender,
+            gr_email_notify_smtp_password,
+            gr_email_notify_smtp_server,
+            gr_scan_interval,
+            gr_shutdown_hunter_after_success,
+        ], [
+                                          gr_hunting_start_button,
+                                          gr_hunting_error,
+                                          gr_hunting_stop_button,
+                                          gr_hunting_logs,
+                                      ])
 
         # 日志
-        demo.load(read_output_logs, None, gr_hunt_logs, every=1)
+        demo.load(read_output_logs, None, gr_hunting_logs, every=1)
 
         # 立即租用：
         #   定时关机：第二天0点  租用xxx分钟后  不设置

@@ -55,3 +55,10 @@ def end_of_day(d):
 
 def begin_of_day(d):
     return time_of_day(d, datetime.time(hour=0, minute=0, second=0, microsecond=0))
+
+
+def validate_email(email):
+    import re
+    pattern = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+    if re.match(pattern, email) is None:
+        raise ValueError("Invalid email address")
