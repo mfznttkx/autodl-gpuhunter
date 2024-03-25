@@ -7,8 +7,9 @@ from gpuhunter.data_object import RegionList, Config
 from main import LOGS_DIR
 
 css = """
-.block.error-message { padding: var(--block-padding); }
-.block.error-message p { color: var(--error-icon-color); font-weight: bold; margin: 0; }
+.block.error-message, .block.success-message { padding: var(--block-padding); }
+.block.error-message p, .block.success-message p { font-weight: bold; margin: 0; }
+.block.error-message p { color: var(--error-icon-color);}
 """
 with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"), css=css) as demo:
     gr.Markdown(
@@ -32,14 +33,15 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         gr_token_clear_button = gr.Button("退出", variant="secondary", size="sm")
 
     with gr.Tab("🌲 开始蹲守", visible=False) as gr_config_tab:
-        with gr.Group():
-            gr_gpu_type = gr.CheckboxGroup(label="显卡型号")
-            gr_region = gr.CheckboxGroup(label="地区")
-            gr_gpu_num = gr.Radio(choices=[n for n in range(1, 13)], label="GPU 数量", value=1)
-
         with gr.Row():
             with gr.Column():
-                gr_instance_num = gr.Slider(label="租用 GPU 主机数量", info="可选择 1-20 台", minimum=1, maximum=20,
+                with gr.Group():
+                    gr_gpu_type = gr.CheckboxGroup(label="显卡型号")
+                    gr_region = gr.CheckboxGroup(label="地区")
+                    gr_gpu_num = gr.Radio(choices=[n for n in range(1, 13)], label="GPU 个数", value=1)
+
+            with gr.Column():
+                gr_instance_num = gr.Slider(label="租用 GPU 主机数量", info="可选择 1-20 台", minimum=0, maximum=20,
                                             step=1, value=1)
                 with gr.Group():
                     gr_image_category = gr.Radio(
@@ -66,32 +68,33 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                                                                  info="选择实例 (只能选择已关机的实例)", min_width=550)
                             gr_clone_instance_refresh_button = gr.Button("刷新", size="sm", min_width=50)
 
-            with gr.Column():
-                with gr.Accordion("定时关机：今天 23:59", open=False) as gr_shutdown_time_accordion:
-                    gr_shutdown_time_type = gr.Radio(choices=["今天 23:59", "8 小时", "12 小时", "24 小时", "不关机"],
-                                                     label="定时关机",
-                                                     info="创建实例时自动设置定时关机，防止忘记关闭后产生费用。")
+                with gr.Accordion(open=False) as gr_shutdown_time_accordion:
+                    gr_shutdown_time_type = gr.Radio(
+                        show_label=False,
+                        choices=["今晚 23:59", "8 小时", "12 小时", "24 小时", "不关机"],
+                        value="今晚 23:59",
+                        info="创建实例时自动设置定时关机，防止忘记关闭后产生费用。")
 
-                with gr.Accordion("邮件通知：zhangsan@lisi.com", open=False) as gr_email_notify_accordion:
-                    with gr.Row(equal_height=True):
-                        with gr.Group():
-                            gr_email_notify_sender = gr.Textbox(label="发信邮箱", type="email")
-                            gr_email_notify_smtp_password = gr.Textbox(label="发信邮箱登录密码", type="password")
+                with gr.Accordion(open=False) as gr_email_notify_accordion:
+                    with gr.Group():
+                        with gr.Row():
+                            with gr.Group():
+                                gr_email_notify_sender = gr.Textbox(label="发信/收信邮箱", type="email")
+                                gr_email_notify_smtp_password = gr.Textbox(label="发信密码", type="password",
+                                                                           info="以明文方式保存在此机，请确保环境安全再填写！")
                             gr_email_notify_smtp_server = gr.Textbox(label="SMTP 服务器")
-                        with gr.Column():
-                            gr_email_notify_receipt = gr.Textbox(label="收信邮箱", type="email",
-                                                                 info="可以用收信邮箱自己发给自己")
-                            gr_email_notify_send_button = gr.Button("发送测试邮件", size="sm")
-                            gr_email_notify_send_output = gr.Markdown("## 发送成功！")
+                    gr_email_notify_send_button = gr.Button("发送测试邮件", size="sm")
+                    gr_email_notify_send_output = gr.Markdown(visible=False)
 
                 with gr.Accordion("更多选项", open=False):
-                    gr_scan_interval = gr.Slider(minimum=1, maximum=60, value=10, step=1, label="扫描间隔时间",
-                                                 info="如果不是急需，请设置长一点的时间，显卡空出来也需要时间，同时请避免给 AutoDL.com 增加压力。")
-                    gr_shutdown_hunter_after_success = gr.Radio(choices=["关机", "不关机"],
-                                                                label="守到后将 Hunter 关机",
-                                                                info="成功后关闭运行此程序 (AutoDL GPU Hunter) 的机器，防止重复蹲守浪费资源。")
+                    gr_scan_interval = gr.Slider(minimum=1, maximum=60, value=10, step=1, label="扫描间隔 (分钟)",
+                                                 info="默认：10分钟，可选 1-60 分钟。如果不是急需，请设置长一点的时间，因为显卡空出来也需要时间，同时也能减少给官网的访问压力。")
+                    gr_shutdown_hunter_after_success = gr.Radio(
+                        choices=[("关机", True), ("不关机", False)], value=False,
+                        label="守到后将 Hunter 关机",
+                        info="成功后可以关闭运行此程序 (AutoDL GPU Hunter) 的机器，防止重复蹲守浪费资源。")
 
-        gr_hunt_start_button = gr.Button("🙈 现在开始", variant="primary", size="lg")
+        gr_hunt_start_button = gr.Button("🙈 开始蹲守", variant="primary", size="lg")
         gr_hunt_stop_button = gr.Button("🤚 停止", variant="stop", size="lg")
         gr_hunt_logs = gr.Textbox(label="🙉 正在蹲守", autoscroll=True, lines=10)
 
@@ -187,8 +190,11 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         def load_clone_instance_uuid_options():
             return {
                 gr_clone_instance_uuid: gr.Dropdown(choices=[
-                    f'{i["region_name"]} / {i["machine_alias"]} ({i["uuid"]})'
-                    for i in autodl_client.list_instance("shutdown")
+                    ("无", None),
+                    *[
+                        (f'{i["region_name"]} / {i["machine_alias"]} ({i["uuid"]})', i["uuid"])
+                        for i in autodl_client.list_instance("shutdown")
+                    ]
                 ])
             }
 
@@ -200,7 +206,41 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             }
 
 
+        def update_shutdown_time_accordion(shutdown_time_type):
+            return {
+                gr_shutdown_time_accordion: gr.Accordion(
+                    f'定时关机{f"：{shutdown_time_type}" if shutdown_time_type else ""}')
+            }
+
+
+        def update_email_notify_accordion(email_notify_sender):
+            return {
+                gr_email_notify_accordion: gr.Accordion(
+                    f'邮件通知{f"：{email_notify_sender}" if email_notify_sender else ""}'),
+            }
+
+
+        def send_test_email(email_notify_sender,
+                            email_notify_smtp_password,
+                            email_notify_smtp_server):
+            error_message = None
+            if not email_notify_sender:
+                error_message = "请指定发送邮箱。"
+            return {
+                **update_email_notify_accordion(email_notify_sender),
+                gr_email_notify_send_output:
+                    gr.Markdown(error_message, visible=True,
+                                elem_classes=["error-message"]) if error_message
+                    else gr.Markdown("邮件发送成功！", visible=True,
+                                     elem_classes=["success-message"])
+            }
+
+
         def start():
+            # todo 校验参数
+            # todo 保存设置
+            # todo 启动进程
+            # todo 监控进程
             pass
 
 
@@ -237,6 +277,20 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                                       [gr_clone_instance_accordion])
         demo.load(update_clone_instance_accordion, [gr_clone_instance_uuid], [gr_clone_instance_accordion])
         demo.load(load_clone_instance_uuid_options, None, [gr_clone_instance_uuid])
+
+        # 定时关机
+        demo.load(update_shutdown_time_accordion, [gr_shutdown_time_type], [gr_shutdown_time_accordion])
+        gr_shutdown_time_type.change(update_shutdown_time_accordion, [gr_shutdown_time_type],
+                                     [gr_shutdown_time_accordion], show_progress=False)
+
+        # 邮件通知
+        demo.load(update_email_notify_accordion, [gr_email_notify_sender],
+                  [gr_email_notify_accordion])
+        gr_email_notify_send_button.click(send_test_email, [gr_email_notify_sender,
+                                                            gr_email_notify_smtp_password,
+                                                            gr_email_notify_smtp_server],
+                                          [gr_email_notify_accordion,
+                                           gr_email_notify_send_output])
 
         # 开始
         gr_hunt_start_button.click(start, [gr_gpu_type, gr_region, gr_gpu_num, gr_instance_num,

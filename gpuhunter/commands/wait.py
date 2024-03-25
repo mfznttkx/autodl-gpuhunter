@@ -134,7 +134,7 @@ def try_to_create_instances():
                         keep_src_user_service_address_after_clone=config.keep_src_user_service_address_after_clone,
                     )
                     # 设置实例名称
-                    autodl_client.update_instance_name(instance_uuid, "😊🎁")
+                    autodl_client.update_instance_name(instance_uuid, "🎁🐒")
                     # 设置定时关机
                     shutdown_at = None
                     if config.shutdown_instance_after_hours:
