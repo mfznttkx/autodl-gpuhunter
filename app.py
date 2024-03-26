@@ -64,13 +64,14 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                                                   minimum=0, maximum=3000, step=1, value=0,
                                                   show_label=False)
 
-                with gr.Accordion(open=False) as gr_clone_instance_accordion:
+                with gr.Accordion(open=False) as gr_clone_instances_accordion:
                     with gr.Group():
                         with gr.Row():
-                            gr_clone_instance = gr.Dropdown(show_label=False,
-                                                            info="选择实例 (只能选择：同地区、已关机的实例)",
-                                                            min_width=550)
-                            gr_clone_instance_refresh_button = gr.Button("刷新", size="sm", min_width=50)
+                            gr_clone_instances = gr.Dropdown(label="选择实例",
+                                                             info="只能克隆同地区的实例，请确保实例已关机。如蹲守多个地区，"
+                                                                  "可以为每个地区选择一个要克隆的实例，蹲守到主机后会按照主机所在地区进行匹配",
+                                                             min_width=550, multiselect=True)
+                            gr_clone_instances_refresh_button = gr.Button("刷新", size="sm", min_width=50)
                         gr_copy_data_after_clone = gr.Checkbox(label="克隆后复制数据盘", value=True)
                         gr_keep_address_after_clone = gr.Checkbox(label="克隆后保持服务网址", value=True)
                 with gr.Accordion(open=False) as gr_shutdown_time_accordion:
@@ -204,18 +205,19 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             }
 
 
-        def load_clone_instance_options():
+        def load_clone_instances_options():
             def get_label(image):
                 return f'{image["region_name"]} / {image["machine_alias"]} ({image["uuid"]})'
 
             return {
-                gr_clone_instance: gr.Dropdown(choices=[
+                gr_clone_instances: gr.Dropdown(choices=[
                     ("无", None),
                     *[
                         (get_label(i),
                          json_dumps({
                              "label": get_label(i),
                              "uuid": i["uuid"],
+                             "region_name": i["region_name"],
                          }))
                         for i in autodl_client.list_instance("shutdown")
                     ]
@@ -223,14 +225,18 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             }
 
 
-        def update_clone_instance_accordion(clone_instance):
-            clone_instance_label = ""
-            if clone_instance:
-                clone_instance_info = json.loads(clone_instance)
-                clone_instance_label = clone_instance_info["label"]
+        def update_clone_instances_accordion(clone_instances):
+            title_suffix = ""
+            if clone_instances:
+                if len(clone_instances) == 1:
+                    clone_instances_info = json.loads(clone_instances[0])
+                    clone_instances_label = clone_instances_info["label"]
+                    title_suffix = f"：{clone_instances_label}" if clone_instances_label else ""
+                else:
+                    title_suffix = f'：{"、".join([json.loads(i)["label"] for i in clone_instances])}'
             return {
-                gr_clone_instance_accordion: gr.Accordion(
-                    label=f'克隆现有实例{f"：{clone_instance_label}" if clone_instance_label else ""}')
+                gr_clone_instances_accordion: gr.Accordion(
+                    label=f'克隆现有实例{title_suffix}')
             }
 
 
@@ -266,7 +272,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
         def hunting_start(gpu_types, regions, gpu_num, instance_num, image_category, base_image, shared_image,
                           private_image,
-                          expand_disk_gb, clone_instance, copy_data_after_clone, keep_address_after_clone,
+                          expand_disk_gb, clone_instances, copy_data_after_clone, keep_address_after_clone,
                           shutdown_time_type, email_notify_sender,
                           email_notify_smtp_password, email_notify_smtp_server, scan_interval,
                           shutdown_hunter_after_success):
@@ -329,13 +335,12 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
                 config.expand_data_disk = expand_disk_gb * 1073741824
 
-                if clone_instance:
-                    clone_instance_info = json.loads(clone_instance)
-                    config.clone_instance_uuid = clone_instance_info["uuid"]
+                if clone_instances:
+                    config.clone_instances = [json.loads(i) for i in clone_instances]
                     config.copy_data_disk_after_clone = copy_data_after_clone
                     config.keep_src_user_service_address_after_clone = keep_address_after_clone
                 else:
-                    config.clone_instance_uuid = ""
+                    config.clone_instances = []
                     config.copy_data_disk_after_clone = False
                     config.keep_src_user_service_address_after_clone = False
 
@@ -412,12 +417,12 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         demo.load(update_disk_accordion, [gr_expand_disk_gb], [gr_expand_disk_accordion])
 
         # 复制已有实例
-        gr_clone_instance_refresh_button.click(load_clone_instance_options, None,
-                                               [gr_clone_instance])
-        gr_clone_instance.change(update_clone_instance_accordion, [gr_clone_instance],
-                                 [gr_clone_instance_accordion])
-        demo.load(update_clone_instance_accordion, [gr_clone_instance], [gr_clone_instance_accordion])
-        demo.load(load_clone_instance_options, None, [gr_clone_instance])
+        gr_clone_instances_refresh_button.click(load_clone_instances_options, None,
+                                                [gr_clone_instances])
+        gr_clone_instances.change(update_clone_instances_accordion, [gr_clone_instances],
+                                  [gr_clone_instances_accordion], show_progress="hidden")
+        demo.load(update_clone_instances_accordion, [gr_clone_instances], [gr_clone_instances_accordion])
+        demo.load(load_clone_instances_options, None, [gr_clone_instances])
 
         # 定时关机
         demo.load(update_shutdown_time_accordion, [gr_shutdown_time_type], [gr_shutdown_time_accordion])
@@ -444,7 +449,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             gr_shared_image,
             gr_private_image,
             gr_expand_disk_gb,
-            gr_clone_instance,
+            gr_clone_instances,
             gr_copy_data_after_clone,
             gr_keep_address_after_clone,
             gr_shutdown_time_type,

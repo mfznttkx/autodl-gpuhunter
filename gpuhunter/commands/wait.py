@@ -58,6 +58,8 @@ def try_to_create_instances():
                         for s in r["region_sign"]]
     logger.debug(f"config: {config.to_dict()!r}")
     logger.debug(f"region_list.list: {region_list.to_dict()!r}")
+
+    # todo 按机器匹配要克隆的目标，修改配置 config.clone_instance_uuid -> config.clone_instances
     # 如果有克隆目标，确保使用同区域的机器
     if config.clone_instance_uuid:
         instance_snapshot = autodl_client.get_instance_snapshot(config.clone_instance_uuid)
