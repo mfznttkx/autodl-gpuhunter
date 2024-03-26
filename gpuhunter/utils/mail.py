@@ -44,3 +44,10 @@ def get_text_body(msg):
 
 def get_text_header(data):
     return str(make_header(decode_header(data)))
+
+
+def normalize_smtp_server(smtp_server):
+    if ":" not in smtp_server:
+        smtp_server += ":465"
+    smtp_host, smtp_port = smtp_server.split(":")
+    return smtp_host.strip(), smtp_port.strip()

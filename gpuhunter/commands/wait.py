@@ -22,7 +22,7 @@ def after_finished(config, created_instance_names=None):
             )
             send_mail(
                 config.mail_receipt,
-                subject=f"[autodl-gpuhunter] {len(created_instance_names)} 个实例创建完毕",
+                subject=f"[GPUHunter] {len(created_instance_names)} 个实例创建完毕",
                 content=content,
                 sender=config.mail_sender,
                 smtp_host=config.mail_smtp_host,
