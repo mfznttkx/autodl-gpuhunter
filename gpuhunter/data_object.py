@@ -58,13 +58,13 @@ class Config(DataObjectMixin):
     private_image_uuid = ""
     private_image_name = ""
     expand_data_disk = 0
-    clone_instance_uuid = ""
+    clone_instances = []
     copy_data_disk_after_clone = False
     keep_src_user_service_address_after_clone = True
     shutdown_instance_after_hours = 0
     shutdown_instance_today = True
     shutdown_hunter_after_finished = True
-    retry_interval_minutes = 10
+    retry_interval_seconds = 30
     mail_notify = False
     mail_receipt = ""
     mail_sender = ""

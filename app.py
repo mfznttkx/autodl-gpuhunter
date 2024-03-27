@@ -102,7 +102,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                                     label="发信密码", type="password",
                                     info="以明文方式保存在此机，请确保环境安全再填写！如果你的邮箱很重要，不推荐直接填写账号密码。"
                                          "很多邮箱都支持单独的发信密码 (或叫授权码等)，推荐使用这类临时密码。"
-                                         "实在不信就新注册一个免费邮箱！"
+                                         "实在不行就新注册一个免费邮箱！"
                                 )
                             gr_email_notify_smtp_server = gr.Textbox(label="SMTP 服务器")
                     gr_email_notify_send_button = gr.Button("发送测试邮件", size="sm")
@@ -110,13 +110,13 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
                 with gr.Accordion("更多选项", open=False):
                     gr_scan_interval = gr.Slider(
-                        minimum=1,
-                        maximum=60,
-                        value=10,
+                        minimum=10,
+                        maximum=600,
+                        value=30,
                         step=1,
-                        label="扫描间隔 (分钟)",
-                        info="默认：10分钟，可选 1-60 分钟。如果不是急需，请设置长一点的时间，"
-                             "因为显卡空出来也需要时间，同时也能减少给官网的访问压力。"
+                        label="扫描间隔 (秒)",
+                        info="默认：30 秒，可选 10-600 秒。如果不是急需，请设置大一点，"
+                             "因为显卡空出来也需要时间，同时也可以减少官网的访问压力。"
                     )
                     gr_shutdown_hunter_after_success = gr.Radio(
                         choices=[("关机", True), ("不关机", False)],
@@ -410,7 +410,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                     config.shutdown_instance_after_hours = int(re.findall("^\\d+", shutdown_time_type)[0])
 
                 config.shutdown_hunter_after_finished = shutdown_hunter_after_success
-                config.retry_interval_minutes = max(1, scan_interval)
+                config.retry_interval_seconds = max(10, scan_interval)
 
                 if email_notify_sender:
                     from gpuhunter.utils.mail import normalize_smtp_server
@@ -430,8 +430,6 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                     config.mail_smtp_password = ""
                 print(config.to_dict())
 
-                # todo 校验参数
-                # todo 保存设置
                 # todo 启动进程
                 # todo 监控进程
                 return {
@@ -544,12 +542,6 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
         # 日志
         demo.load(read_output_logs, None, gr_hunting_logs, every=1)
-
-        # 立即租用：
-        #   定时关机：第二天0点  租用xxx分钟后  不设置
-        #   复制已有实例：
-        #   租用数量：3
-        # 邮件通知：接受通知的邮箱，需要发送测试邮件的功能
 
         # 时间间隔：1分钟，10分钟（默认），30分钟，60分钟。（如果不是急需，请设置长一点的时间，避免给 autodl 增加压力）
         # 🙈 现在开始，🙉 正在蹲守（风险提示）

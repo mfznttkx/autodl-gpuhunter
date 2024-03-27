@@ -167,8 +167,8 @@ def try_to_create_instances():
                 after_finished(config, created_instance_names)
             else:
                 # 否则等待指定时间后重试
-                logger.debug(f"wait for next retry, config.retry_interval_minutes: {config.retry_interval_minutes!r}")
-                time.sleep(config.retry_interval_minutes * 60)
+                logger.debug(f"wait for next retry, config.retry_interval_seconds: {config.retry_interval_seconds!r}")
+                time.sleep(config.retry_interval_seconds * 60)
                 try_to_create_instances()
 
 
