@@ -59,6 +59,9 @@ def try_to_create_instances():
     logger.debug(f"config: {config.to_dict()!r}")
     logger.debug(f"region_list.list: {region_list.to_dict()!r}")
 
+    # todo 流程测试完毕后开启功能
+    return False
+
     # todo 按机器匹配要克隆的目标，修改配置 config.clone_instance_uuid -> config.clone_instances
     # 如果有克隆目标，确保使用同区域的机器
     if config.clone_instance_uuid:
@@ -102,6 +105,7 @@ def try_to_create_instances():
     if instance_to_create_num == 0:
         # 如果没有，就立刻完成
         after_finished(config)
+        return True
     else:
         # 如果需要，就创建实例
         # 寻找符合要求的机器
@@ -165,11 +169,8 @@ def try_to_create_instances():
                 logger.info(f"{instance_to_create_num} 个实例创建完毕。"
                             f" {instance_to_create_num} requested instances are created.")
                 after_finished(config, created_instance_names)
-            else:
-                # 否则等待指定时间后重试
-                logger.debug(f"wait for next retry, config.retry_interval_seconds: {config.retry_interval_seconds!r}")
-                time.sleep(config.retry_interval_seconds * 60)
-                try_to_create_instances()
+                return True
+    return False
 
 
 def get_help():
@@ -181,4 +182,12 @@ def add_arguments(parser):
 
 
 def main():
-    try_to_create_instances()
+    from gpuhunter.data_object import Config
+    config = Config().load()
+    while True:
+        if not try_to_create_instances():
+            # 否则等待指定时间后重试
+            logger.debug(f"wait for next retry, config.retry_interval_seconds: {config.retry_interval_seconds!r}")
+            time.sleep(config.retry_interval_seconds)
+        else:
+            break

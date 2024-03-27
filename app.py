@@ -1,13 +1,16 @@
 import json
 import os.path
 import re
+import time
+from datetime import datetime
+from pathlib import Path
 
 import gradio as gr
 
 from gpuhunter.autodl_client import FailedError, autodl_client
 from gpuhunter.data_object import RegionList, Config
 from gpuhunter.utils.helpers import json_dumps, validate_email
-from main import LOGS_DIR
+from main import LOGS_DIR, logger, DATA_DIR
 
 css = """
 .block.error-message, .block.success-message { padding: var(--block-padding); }
@@ -373,6 +376,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                 config.gpu_idle_num = gpu_num
                 config.instance_num = instance_num
 
+                config.image_category = image_category
                 config.base_image_labels = []
                 config.shared_image_keyword = ""
                 config.shared_image_username_keyword = ""
@@ -428,18 +432,38 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                     config.mail_smtp_port = ""
                     config.mail_smtp_username = ""
                     config.mail_smtp_password = ""
-                print(config.to_dict())
 
-                # todo 启动进程
-                # todo 监控进程
-                return {
+                # 保存设置
+                config.save()
+
+                outputs = {
                     gr_hunting_start_button: gr.Button(visible=False),
                     gr_hunting_error: gr.Markdown(visible=False),
                     gr_hunting_stop_button: gr.Button(visible=True),
                     gr_hunting_logs: gr.Textbox(visible=True),
                 }
+                yield outputs
+                # 创建运行状态标记
+                Path(os.path.join(DATA_DIR, "running.state")).touch()
+                # 重新开启输出日志
+                output_log_file = os.path.join(LOGS_DIR, "output.log")
+                Path(output_log_file).rename(f'{output_log_file}.{datetime.now().strftime("%Y-%m-%d_%H:%M:%S_%f")}')
+                Path(output_log_file).touch()
+                while True:
+                    from gpuhunter.commands.wait import try_to_create_instances
+                    if not try_to_create_instances():
+                        # 否则等待指定时间后重试
+                        logger.info(
+                            f"等待 {config.retry_interval_seconds!r} 秒后重新扫描..."
+                            f" Next scanning will start after {config.retry_interval_seconds!r} seconds..."
+                        )
+                        yield outputs
+                        time.sleep(config.retry_interval_seconds)
+                    else:
+                        break
+                yield outputs
             else:
-                return {
+                yield {
                     gr_hunting_start_button: gr.Button(visible=True),
                     gr_hunting_error: gr.Markdown(visible=True, value="\n".join([f"- {m}" for m in error_messages])),
                     gr_hunting_stop_button: gr.Button(visible=False),
@@ -447,9 +471,28 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                 }
 
 
+        def hunting_stop():
+            Path(os.path.join(DATA_DIR, "running.state")).unlink(missing_ok=True)
+            return {
+                gr_hunting_start_button: gr.Button(visible=True),
+                gr_hunting_error: gr.Markdown(visible=False, value=""),
+                gr_hunting_stop_button: gr.Button(visible=False),
+                gr_hunting_logs: gr.Textbox(visible=False),
+            }
+
+
         def read_output_logs():
             with open(os.path.join(LOGS_DIR, "output.log"), "r") as f:
                 return f.read()
+
+
+        def check_hunting_status():
+            is_hunting = os.path.exists(os.path.join(DATA_DIR, "running.state"))
+            return {
+                gr_hunting_start_button: gr.Button(visible=not is_hunting),
+                gr_hunting_stop_button: gr.Button(visible=is_hunting),
+                gr_hunting_logs: gr.Textbox(visible=is_hunting),
+            }
 
 
         # GPU 和地区
@@ -466,7 +509,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             ]
         )
 
-        gr_shared_image_search.blur(load_shared_image_options, [gr_shared_image_search], [gr_shared_image])
+        gr_shared_image_search.change(load_shared_image_options, [gr_shared_image_search], [gr_shared_image])
 
         # 扩展磁盘
         gr_expand_disk_gb.change(
@@ -498,19 +541,25 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             update_shutdown_time_accordion,
             [gr_shutdown_time_type],
             [gr_shutdown_time_accordion],
-            show_progress=False
+            show_progress=False,
         )
 
         # 邮件通知
+        gr_email_notify_sender.change(
+            update_email_notify_accordion,
+            [gr_email_notify_sender],
+            [gr_email_notify_accordion],
+            show_progress="hidden",
+        )
         demo.load(update_email_notify_accordion, [gr_email_notify_sender], [gr_email_notify_accordion])
         gr_email_notify_send_button.click(
             send_test_email,
             [gr_email_notify_sender, gr_email_notify_smtp_password, gr_email_notify_smtp_server],
-            [gr_email_notify_accordion, gr_email_notify_send_output]
+            [gr_email_notify_accordion, gr_email_notify_send_output],
         )
 
         # 开始
-        gr_hunting_start_button.click(
+        hunting_job = gr_hunting_start_button.click(
             hunting_start,
             [
                 gr_gpu_types,
@@ -540,17 +589,30 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             ]
         )
 
+        gr_hunting_stop_button.click(
+            hunting_stop,
+            None,
+            [
+                gr_hunting_start_button,
+                gr_hunting_error,
+                gr_hunting_stop_button,
+                gr_hunting_logs,
+            ],
+            cancels=[hunting_job],
+        )
+
+        demo.load(
+            check_hunting_status,
+            None,
+            [
+                gr_hunting_start_button,
+                gr_hunting_stop_button,
+                gr_hunting_logs,
+            ]
+        )
+
         # 日志
         demo.load(read_output_logs, None, gr_hunting_logs, every=1)
-
-        # 时间间隔：1分钟，10分钟（默认），30分钟，60分钟。（如果不是急需，请设置长一点的时间，避免给 autodl 增加压力）
-        # 🙈 现在开始，🙉 正在蹲守（风险提示）
-        # output：
-        #   暂时还没有空闲的 GPU 主机。
-        #   发现 GPU 主机：西北B区，RTX 4090，立即租用
-        #   当前已启动 4 个容器实例
-        #   2024-03-02 15:03:34
-        # 守到后关机
 
     with gr.Tab("🐰 算力实况", visible=False) as gr_stat_tab:
         gr.Markdown("## 当前 GPU 主机数量")
@@ -642,6 +704,46 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                 gr_config_tab: gr.Tab(visible=True),
                 gr_stat_tab: gr.Tab(visible=True),
                 gr_token_input_error: gr.Markdown(visible=False),
+
+                gr_gpu_types: gr.CheckboxGroup(value=config.gpu_type_names),
+                gr_regions: gr.CheckboxGroup(value=config.region_names),
+                gr_gpu_num: gr.Radio(value=config.gpu_idle_num),
+                gr_instance_num: gr.Slider(value=config.instance_num),
+                gr_image_category: gr.Radio(value=config.image_category),
+
+                gr_base_image: gr.Dropdown(value=json_dumps({"base_image_labels": config.base_image_labels})),
+                gr_shared_image_search: gr.Textbox(value=config.shared_image_keyword),
+                gr_shared_image: gr.Dropdown(
+                    value=json_dumps({
+                        "shared_image_keyword": config.shared_image_keyword,
+                        "shared_image_username_keyword": config.shared_image_username_keyword,
+                        "shared_image_version": config.shared_image_version,
+                    })
+                ),
+                gr_private_image: gr.Dropdown(
+                    value=json_dumps({
+                        "private_image_uuid": config.private_image_uuid,
+                        "private_image_name": config.private_image_name,
+                    })
+                ),
+                gr_expand_disk_gb: gr.Slider(value=config.expand_data_disk / 1024 / 1024 / 1024),
+                gr_clone_instances: gr.Dropdown(
+                    value=[json_dumps(i) for i in config.clone_instances]
+                ),
+                gr_copy_data_after_clone: gr.Checkbox(value=config.copy_data_disk_after_clone),
+                gr_keep_address_after_clone: gr.Checkbox(value=config.keep_src_user_service_address_after_clone),
+                gr_shutdown_time_type: gr.Radio(
+                    value="今晚 23:59" if config.shutdown_instance_today
+                    else f"{config.shutdown_instance_after_hours} 小时" if config.shutdown_instance_after_hours > 0
+                    else "不关机"
+                ),
+                gr_email_notify_sender: gr.Textbox(value=config.mail_sender),
+                gr_email_notify_smtp_password: gr.Textbox(value=config.mail_smtp_password),
+                gr_email_notify_smtp_server: gr.Textbox(
+                    value=f"{config.mail_smtp_host}:{config.mail_smtp_port}" if config.mail_smtp_host else ""
+                ),
+                gr_scan_interval: gr.Slider(value=config.retry_interval_seconds),
+                gr_shutdown_hunter_after_success: gr.Radio(value=config.shutdown_hunter_after_finished),
             }
         else:
             return {
@@ -667,8 +769,34 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
     demo.load(
         load_config,
-        outputs=[gr_token_input_group, gr_token_input, gr_token_input_error,
-                 gr_token_view_group, gr_token_view_input, gr_config_tab, gr_stat_tab]
+        outputs=[
+            gr_token_input_group,
+            gr_token_input,
+            gr_token_input_error,
+            gr_token_view_group,
+            gr_token_view_input,
+            gr_config_tab,
+            gr_stat_tab,
+            gr_gpu_types,
+            gr_regions,
+            gr_gpu_num,
+            gr_instance_num,
+            gr_image_category,
+            gr_base_image,
+            gr_shared_image_search,
+            gr_shared_image,
+            gr_private_image,
+            gr_expand_disk_gb,
+            gr_clone_instances,
+            gr_copy_data_after_clone,
+            gr_keep_address_after_clone,
+            gr_shutdown_time_type,
+            gr_email_notify_sender,
+            gr_email_notify_smtp_password,
+            gr_email_notify_smtp_server,
+            gr_scan_interval,
+            gr_shutdown_hunter_after_success,
+        ]
     )
 
     gr_token_save_button.click(

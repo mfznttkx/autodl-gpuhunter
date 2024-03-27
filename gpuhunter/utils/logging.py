@@ -21,13 +21,17 @@ def get_logger(logger_name, logs_dir):
     stream_handler.setFormatter(simple_formatter)
     logger.addHandler(stream_handler)
     # 文件
-    for level, filename in ((logging.DEBUG, "main.log"), (logging.INFO, "output.log")):
+    handlers = (
+        (logging.DEBUG, "main.log", verbose_formatter),
+        (logging.INFO, "output.log", simple_formatter),
+    )
+    for level, filename, formatter in handlers:
         file_handler = TimedRotatingFileHandler(
             filename=os.path.join(logs_dir, filename),
             when="D",
             backupCount=5,
         )
         file_handler.setLevel(level)
-        file_handler.setFormatter(verbose_formatter)
+        file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)
     return logger

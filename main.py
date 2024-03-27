@@ -43,6 +43,6 @@ if __name__ == "__main__":
         module.add_arguments(command_parser)
         modules_map[command_name] = module
     options = parser.parse_args(sys.argv[1:])
-    module = modules_map[options.command_name or "app"]
+    module = modules_map[options.command_name or "wait"]
     del options.command_name
     module.main(**vars(options))

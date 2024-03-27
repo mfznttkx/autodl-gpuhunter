@@ -51,6 +51,7 @@ class Config(DataObjectMixin):
     gpu_type_names = []
     gpu_idle_num = 1
     instance_num = 1
+    image_category = ""
     base_image_labels = None
     shared_image_keyword = ""
     shared_image_username_keyword = ""
