@@ -48,9 +48,6 @@ def try_to_create_instances():
     )
     from gpuhunter.data_object import Config, RegionList
 
-    # todo 确保机器的数据盘扩容量足够
-    # todo 确保要复制的实例已关机
-
     # 加载数据和配置
     config = Config().load()
     region_list = RegionList().update()
@@ -59,20 +56,18 @@ def try_to_create_instances():
     logger.debug(f"config: {config.to_dict()!r}")
     logger.debug(f"region_list.list: {region_list.to_dict()!r}")
 
-    # todo 流程测试完毕后开启功能
-    return False
-
-    # todo 按机器匹配要克隆的目标，修改配置 config.clone_instance_uuid -> config.clone_instances
     # 如果有克隆目标，确保使用同区域的机器
-    if config.clone_instance_uuid:
-        instance_snapshot = autodl_client.get_instance_snapshot(config.clone_instance_uuid)
-        region_sign = instance_snapshot["machine_info_snapshot"]["region_sign"]
-        if region_sign_list != [region_sign]:
-            logger.info(f"即将克隆的实例 ({config.clone_instance_uuid}) 区域代码为：{region_sign}，"
-                        f"只能使用该区域的机器，已选的区域将被忽略。"
-                        f" Region code of the instance ({config.clone_instance_uuid}) to be cloned is: {region_sign}, "
-                        f"only machines in that region can be used, selected regions will be ignored.")
-            region_sign_list = [region_sign]
+    region_clone_uuid_map = {}
+    if config.clone_instances:
+        region_clone_uuid_map = {
+            i["region_sign"]: i["uuid"]
+            for i in config.clone_instances
+        }
+        if non_uuid_region_signs := list(set(region_sign_list) - set(region_clone_uuid_map.keys())):
+            logger.info(f"这些区域没有指定要克隆的实例：({non_uuid_region_signs})，创建实例时将不会克隆。"
+                        f" These regions do not specify an instance to be cloned: ({non_uuid_region_signs}) "
+                        f"and will not be cloned when the instance is created.")
+    logger.debug(f"region_clone_uuid_map: {region_clone_uuid_map!r}")
     logger.debug(f"region_sign_list: {region_sign_list!r}")
     logger.info(f"尝试创建 {config.instance_num} 个实例..."
                 f" Try to create {config.instance_num} instances...")
@@ -114,7 +109,9 @@ def try_to_create_instances():
             config.gpu_type_names,
             gpu_idle_num=config.gpu_idle_num,
             count=config.instance_num,
+            min_expand_data_disk=config.expand_data_disk,
         )
+        # 确保机器的数据盘扩容量足够
         logger.debug(f"machines: {machines!r}")
         # 检查是否有可用的机器
         if len(machines) == 0:
@@ -135,7 +132,7 @@ def try_to_create_instances():
                         reproduction_id=image_info["reproduction_id"],
                         req_gpu_amount=config.gpu_idle_num,
                         expand_data_disk=config.expand_data_disk,
-                        clone_instance_uuid=config.clone_instance_uuid,
+                        clone_instance_uuid=region_clone_uuid_map.get(machine["region_sign"]),
                         copy_data_disk_after_clone=config.copy_data_disk_after_clone,
                         keep_src_user_service_address_after_clone=config.keep_src_user_service_address_after_clone,
                     )

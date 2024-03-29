@@ -256,6 +256,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                                  "label": get_label(i),
                                  "uuid": i["uuid"],
                                  "region_name": i["region_name"],
+                                 "region_sign": i["region_sign"],
                              }))
                             for i in autodl_client.list_instance("shutdown")
                         ]
@@ -521,7 +522,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
         demo.load(update_disk_accordion, [gr_expand_disk_gb], [gr_expand_disk_accordion])
 
-        # 复制已有实例
+        # 克隆现有实例
         gr_clone_instances_refresh_button.click(
             load_clone_instances_options, None,
             [gr_clone_instances]

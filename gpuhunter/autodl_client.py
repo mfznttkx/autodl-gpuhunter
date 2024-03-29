@@ -454,10 +454,12 @@ def get_default_client():
     return client
 
 
-def get_available_machines(region_sign_list, gpu_type_name, gpu_idle_num=1, count=10, **kwargs):
+def get_available_machines(region_sign_list, gpu_type_name, gpu_idle_num=1, count=10, min_expand_data_disk=0, **kwargs):
     machines = []
     for mch in autodl_client.list_machine(region_sign_list, gpu_type_name, gpu_idle_num, **kwargs):
-        if mch["gpu_idle_num"] >= gpu_idle_num and mch["gpu_order_num"] >= gpu_idle_num:
+        if mch["gpu_idle_num"] >= gpu_idle_num \
+                and mch["gpu_order_num"] >= gpu_idle_num \
+                and mch["max_data_disk_expand_size"] >= min_expand_data_disk:
             machines.append(mch)
         if count is not None and len(machines) == count:
             break
