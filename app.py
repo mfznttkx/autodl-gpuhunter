@@ -1,6 +1,7 @@
 import json
 import os.path
 import re
+import shutil
 import time
 from datetime import datetime
 from pathlib import Path
@@ -107,7 +108,13 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                                          "很多邮箱都支持单独的发信密码 (或叫授权码等)，推荐使用这类临时密码。"
                                          "实在不行就新注册一个免费邮箱！"
                                 )
-                            gr_email_notify_smtp_server = gr.Textbox(label="SMTP 服务器")
+                            gr_email_notify_smtp_server = gr.Textbox(
+                                label="SMTP 服务器",
+                                info="如果不知道该怎么填，可以登录你的邮箱网站查看帮助，一般在发信设置里面可以找到 SMTP 设置方法。"
+                                     "常见邮箱设置："
+                                     "- QQ 邮箱：smtp.qq.com "
+                                     "- 163 邮箱：smtp.163.com "
+                            )
                     gr_email_notify_send_button = gr.Button("发送测试邮件", size="sm")
                     gr_email_notify_send_output = gr.Markdown(visible=False)
 
@@ -189,7 +196,8 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                             for fv in f["children"]
                             for p in fv["children"]
                             for c in p["children"]
-                        ]
+                        ],
+                        allow_custom_value=False,
                     )
                 }
             elif image_category == "shared":
@@ -210,7 +218,8 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                                  "private_image_name": i["name"],
                              }))
                             for i in private_images
-                        ]
+                        ],
+                        allow_custom_value=False,
                     )
                 }
             else:
@@ -230,7 +239,8 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                          }))
                         for i in shared_images
                         for v in i["version_info"]
-                    ]
+                    ],
+                    allow_custom_value=False,
                 ),
             }
 
@@ -295,6 +305,25 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             }
 
 
+        def update_email_config(config, email_notify_sender, email_notify_smtp_server, email_notify_smtp_password):
+            if email_notify_sender:
+                from gpuhunter.utils.mail import normalize_smtp_server
+                config.mail_notify = True
+                config.mail_receipt = email_notify_sender
+                config.mail_sender = email_notify_sender
+                config.mail_smtp_host, config.mail_smtp_port = normalize_smtp_server(email_notify_smtp_server)
+                config.mail_smtp_username = email_notify_sender
+                config.mail_smtp_password = email_notify_smtp_password
+            else:
+                config.mail_notify = False
+                config.mail_receipt = ""
+                config.mail_sender = ""
+                config.mail_smtp_host = ""
+                config.mail_smtp_port = ""
+                config.mail_smtp_username = ""
+                config.mail_smtp_password = ""
+
+
         def send_test_email(email_notify_sender, email_notify_smtp_password, email_notify_smtp_server):
             error_message = None
             if not email_notify_sender:
@@ -318,6 +347,15 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                         smtp_username=email_notify_sender,
                         smtp_password=email_notify_smtp_password,
                     )
+                    gr.Info("邮件发送成功！")
+                    config = Config().load()
+                    update_email_config(
+                        config,
+                        email_notify_sender,
+                        email_notify_smtp_server,
+                        email_notify_smtp_password
+                    )
+                    config.save()
                 except SMTPException as e:
                     error_message = f"发信失败：{str(e)}"
             return {
@@ -329,7 +367,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                         elem_classes=["error-message"]
                     ) if error_message
                     else gr.Markdown(
-                        "邮件发送成功！",
+                        "邮件发送成功！请登录邮箱查收新邮件。",
                         visible=True,
                         elem_classes=["success-message"]
                     )
@@ -417,22 +455,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                 config.shutdown_hunter_after_finished = shutdown_hunter_after_success
                 config.retry_interval_seconds = max(10, scan_interval)
 
-                if email_notify_sender:
-                    from gpuhunter.utils.mail import normalize_smtp_server
-                    config.mail_notify = True
-                    config.mail_receipt = email_notify_sender
-                    config.mail_sender = email_notify_sender
-                    config.mail_smtp_host, config.mail_smtp_port = normalize_smtp_server(email_notify_smtp_server)
-                    config.mail_smtp_username = email_notify_sender
-                    config.mail_smtp_password = email_notify_smtp_password
-                else:
-                    config.mail_notify = False
-                    config.mail_receipt = ""
-                    config.mail_sender = ""
-                    config.mail_smtp_host = ""
-                    config.mail_smtp_port = ""
-                    config.mail_smtp_username = ""
-                    config.mail_smtp_password = ""
+                update_email_config(config, email_notify_sender, email_notify_smtp_server, email_notify_smtp_password)
 
                 # 保存设置
                 config.save()
@@ -448,8 +471,10 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                 Path(os.path.join(DATA_DIR, "running.state")).touch()
                 # 重新开启输出日志
                 output_log_file = os.path.join(LOGS_DIR, "output.log")
-                Path(output_log_file).rename(f'{output_log_file}.{datetime.now().strftime("%Y-%m-%d_%H:%M:%S_%f")}')
-                Path(output_log_file).touch()
+                shutil.copy(output_log_file, f'{output_log_file}.{datetime.now().strftime("%Y-%m-%d_%H:%M:%S_%f")}')
+                with open(output_log_file, "w") as f:
+                    f.truncate()
+                    f.close()
                 while True:
                     from gpuhunter.commands.wait import try_to_create_instances
                     if not try_to_create_instances():
@@ -473,6 +498,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
 
         def hunting_stop():
+            # 重置运行标记
             Path(os.path.join(DATA_DIR, "running.state")).unlink(missing_ok=True)
             return {
                 gr_hunting_start_button: gr.Button(visible=True),
@@ -483,8 +509,12 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
 
         def read_output_logs():
-            with open(os.path.join(LOGS_DIR, "output.log"), "r") as f:
-                return f.read()
+            output_log_file = os.path.join(LOGS_DIR, "output.log")
+            if os.path.exists(output_log_file):
+                with open(output_log_file, "r") as f:
+                    return f.read()
+            else:
+                return ""
 
 
         def check_hunting_status():
@@ -712,20 +742,25 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                 gr_instance_num: gr.Slider(value=config.instance_num),
                 gr_image_category: gr.Radio(value=config.image_category),
 
-                gr_base_image: gr.Dropdown(value=json_dumps({"base_image_labels": config.base_image_labels})),
+                gr_base_image: gr.Dropdown(
+                    value=json_dumps({"base_image_labels": config.base_image_labels}),
+                    allow_custom_value=True,
+                ),
                 gr_shared_image_search: gr.Textbox(value=config.shared_image_keyword),
                 gr_shared_image: gr.Dropdown(
                     value=json_dumps({
                         "shared_image_keyword": config.shared_image_keyword,
                         "shared_image_username_keyword": config.shared_image_username_keyword,
                         "shared_image_version": config.shared_image_version,
-                    })
+                    }),
+                    allow_custom_value=True,
                 ),
                 gr_private_image: gr.Dropdown(
                     value=json_dumps({
                         "private_image_uuid": config.private_image_uuid,
                         "private_image_name": config.private_image_name,
-                    })
+                    }),
+                    allow_custom_value=True,
                 ),
                 gr_expand_disk_gb: gr.Slider(value=config.expand_data_disk / 1024 / 1024 / 1024),
                 gr_clone_instances: gr.Dropdown(
