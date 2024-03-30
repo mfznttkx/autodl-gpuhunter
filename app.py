@@ -19,6 +19,7 @@ css = """
 .error-message ul li, .block.error-message p { color: var(--error-icon-color);}
 """
 with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"), css=css) as demo:
+    gr_is_token_ready = gr.Radio(value=False, visible=False)
     gr.Markdown(
         """
         # 🐒 AutoDL GPU Hunter
@@ -35,12 +36,13 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                  "切勿在不信任的服务器上填写你的 Token，否则会被人盗用账号而造成意外损失！",
             placeholder="获取方法：进入 AutoDL 网站 / 控制台 / 账号 / 设置 / 开发者 Token"
         )
-        gr_token_input_error = gr.Markdown(elem_classes=["error-message"], visible=False)
         gr_token_save_button = gr.Button("确定", variant="primary", size="lg")
 
     with gr.Group(visible=False) as gr_token_view_group:
         gr_token_view_input = gr.Textbox(label="开发者 Token", lines=1, interactive=False)
         gr_token_clear_button = gr.Button("退出", variant="secondary", size="sm")
+
+    gr_token_input_error = gr.Markdown(elem_classes=["error-message"], visible=False)
 
     with gr.Tab("🌲 开始蹲守", visible=False) as gr_config_tab:
         with gr.Row():
@@ -528,7 +530,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
 
         # GPU 和地区
         gr_gpu_types.change(load_region_options, [gr_gpu_types], outputs=[gr_regions])
-        demo.load(load_gpu_region_options, None, [gr_gpu_types, gr_regions])
+        gr_is_token_ready.change(load_gpu_region_options, None, [gr_gpu_types, gr_regions])
 
         # 镜像选择
         gr_image_category.change(
@@ -550,7 +552,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             show_progress=False
         )
 
-        demo.load(update_disk_accordion, [gr_expand_disk_gb], [gr_expand_disk_accordion])
+        gr_is_token_ready.change(update_disk_accordion, [gr_expand_disk_gb], [gr_expand_disk_accordion])
 
         # 克隆现有实例
         gr_clone_instances_refresh_button.click(
@@ -563,11 +565,11 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             [gr_clone_instances_accordion],
             show_progress="hidden"
         )
-        demo.load(update_clone_instances_accordion, [gr_clone_instances], [gr_clone_instances_accordion])
-        demo.load(load_clone_instances_options, None, [gr_clone_instances])
+        gr_is_token_ready.change(update_clone_instances_accordion, [gr_clone_instances], [gr_clone_instances_accordion])
+        gr_is_token_ready.change(load_clone_instances_options, None, [gr_clone_instances])
 
         # 定时关机
-        demo.load(update_shutdown_time_accordion, [gr_shutdown_time_type], [gr_shutdown_time_accordion])
+        gr_is_token_ready.change(update_shutdown_time_accordion, [gr_shutdown_time_type], [gr_shutdown_time_accordion])
         gr_shutdown_time_type.change(
             update_shutdown_time_accordion,
             [gr_shutdown_time_type],
@@ -582,7 +584,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             [gr_email_notify_accordion],
             show_progress="hidden",
         )
-        demo.load(update_email_notify_accordion, [gr_email_notify_sender], [gr_email_notify_accordion])
+        gr_is_token_ready.change(update_email_notify_accordion, [gr_email_notify_sender], [gr_email_notify_accordion])
         gr_email_notify_send_button.click(
             send_test_email,
             [gr_email_notify_sender, gr_email_notify_smtp_password, gr_email_notify_smtp_server],
@@ -632,7 +634,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             cancels=[hunting_job],
         )
 
-        demo.load(
+        gr_is_token_ready.change(
             check_hunting_status,
             None,
             [
@@ -674,8 +676,8 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                 **update_matrix(gpu_type_names),
                 gr_gpu_checkbox_group: gr.CheckboxGroup(choices=region_list.get_gpu_type_names(), value=gpu_type_names),
                 gr_stat_note: gr.Markdown(
-                    f"以上是当前 AutoDL 官网查询到的 GPU 主机数量，"
-                    f'更新时间：{region_list.modified_time.strftime("%Y-%m-%d %H:%M:%S")}。'
+                    f"以上是当前 AutoDL 官网查询到的 GPU 主机数量，更新时间："
+                    f'{region_list.modified_time.strftime("%Y-%m-%d %H:%M:%S") if region_list.modified_time else "N/A"}。'
                 ),
             }
 
@@ -707,7 +709,7 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
             inputs=[gr_gpu_checkbox_group],
             outputs=[gr_gpu_checkbox_group, gr_gpu_region_matrix, gr_stat_note]
         )
-        demo.load(load_stat, outputs=[gr_gpu_checkbox_group, gr_gpu_region_matrix, gr_stat_note])
+        gr_is_token_ready.change(load_stat, outputs=[gr_gpu_checkbox_group, gr_gpu_region_matrix, gr_stat_note])
 
 
     def load_config(config=None):
@@ -723,12 +725,14 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                 elif "登陆超时" in error_message:
                     error_message = "登录超时，请先打开 AutoDL.com 官网登录一下账号，然后返回并点击确定。"
                 return {
+                    gr_is_token_ready: gr.Radio(value=False),
                     gr_token_input_group: gr.Group(visible=True),
                     gr_token_view_group: gr.Group(visible=False),
                     gr_token_input: gr.Textbox(value=config.token),
                     gr_token_input_error: gr.Markdown(visible=True, value=error_message),
                 }
             return {
+                gr_is_token_ready: gr.Radio(value=True),
                 gr_token_input_group: gr.Group(visible=False),
                 gr_token_view_group: gr.Group(visible=True),
                 gr_token_view_input: config.token[:6] + "******" + config.token[-6:],
@@ -805,49 +809,38 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
         return save_token("")
 
 
-    demo.load(
-        load_config,
-        outputs=[
-            gr_token_input_group,
-            gr_token_input,
-            gr_token_input_error,
-            gr_token_view_group,
-            gr_token_view_input,
-            gr_config_tab,
-            gr_stat_tab,
-            gr_gpu_types,
-            gr_regions,
-            gr_gpu_num,
-            gr_instance_num,
-            gr_image_category,
-            gr_base_image,
-            gr_shared_image_search,
-            gr_shared_image,
-            gr_private_image,
-            gr_expand_disk_gb,
-            gr_clone_instances,
-            gr_copy_data_after_clone,
-            gr_keep_address_after_clone,
-            gr_shutdown_time_type,
-            gr_email_notify_sender,
-            gr_email_notify_smtp_password,
-            gr_email_notify_smtp_server,
-            gr_scan_interval,
-            gr_shutdown_hunter_after_success,
-        ]
-    )
-
-    gr_token_save_button.click(
-        save_token,
-        inputs=[gr_token_input],
-        outputs=[gr_token_input_group, gr_token_input, gr_token_input_error,
-                 gr_token_view_group, gr_token_view_input, gr_config_tab, gr_stat_tab]
-    )
-    gr_token_clear_button.click(
-        clear_token,
-        outputs=[gr_token_input_group, gr_token_input, gr_token_input_error,
-                 gr_token_view_group, gr_token_view_input, gr_config_tab, gr_stat_tab]
-    )
+    load_config_outputs = [
+        gr_is_token_ready,
+        gr_token_input_group,
+        gr_token_input,
+        gr_token_input_error,
+        gr_token_view_group,
+        gr_token_view_input,
+        gr_config_tab,
+        gr_stat_tab,
+        gr_gpu_types,
+        gr_regions,
+        gr_gpu_num,
+        gr_instance_num,
+        gr_image_category,
+        gr_base_image,
+        gr_shared_image_search,
+        gr_shared_image,
+        gr_private_image,
+        gr_expand_disk_gb,
+        gr_clone_instances,
+        gr_copy_data_after_clone,
+        gr_keep_address_after_clone,
+        gr_shutdown_time_type,
+        gr_email_notify_sender,
+        gr_email_notify_smtp_password,
+        gr_email_notify_smtp_server,
+        gr_scan_interval,
+        gr_shutdown_hunter_after_success,
+    ]
+    demo.load(load_config, None, load_config_outputs)
+    gr_token_save_button.click(save_token, [gr_token_input], load_config_outputs)
+    gr_token_clear_button.click(clear_token, None, load_config_outputs)
 
 if __name__ == "__main__":
     demo.launch()

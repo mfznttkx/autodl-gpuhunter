@@ -16,7 +16,11 @@ class DataObjectMixin:
 
     @property
     def modified_time(self):
-        return datetime.fromtimestamp(os.path.getmtime(os.path.join(DATA_DIR, self.data_file)))
+        filename = os.path.join(DATA_DIR, self.data_file)
+        if os.path.exists(filename):
+            return datetime.fromtimestamp(os.path.getmtime(filename))
+        else:
+            return None
 
     def to_dict(self):
         return self.__dict__
@@ -61,10 +65,10 @@ class Config(DataObjectMixin):
     expand_data_disk = 0
     clone_instances = []
     copy_data_disk_after_clone = False
-    keep_src_user_service_address_after_clone = True
+    keep_src_user_service_address_after_clone = False
     shutdown_instance_after_hours = 0
     shutdown_instance_today = True
-    shutdown_hunter_after_finished = True
+    shutdown_hunter_after_finished = False
     retry_interval_seconds = 30
     mail_notify = False
     mail_receipt = ""
@@ -76,7 +80,7 @@ class Config(DataObjectMixin):
 
 
 class RegionList(DataObjectMixin):
-    list = None
+    list = []
 
     def fetch(self):
         from gpuhunter.autodl_client import autodl_client
