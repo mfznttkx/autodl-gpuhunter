@@ -26,7 +26,7 @@
     <a href="#getting-started"><strong>快速入门 (Getting Started) »</strong></a>
     <br />
     <br />
-    <a href="https://github.com/mfznttkx/autodl-gpuhunter/issues">汇报问题 (Report Bug)</a>
+    <a href="https://github.com/mfznttkx/autodl-gpuhunter/issues">反馈问题 (Report Bug)</a>
     ·
     <a href="https://github.com/mfznttkx/autodl-gpuhunter/issues">功能需求 (Request Feature)</a>
     ·
@@ -87,8 +87,6 @@
   * 常见的 Python 环境即可安装，同时支持容器化部署——运行简单
   * 打出一条命令即可启动服务，按下一个按钮即可开始蹲守 (小学生都会) ——使用简单
   * 以 Gradio 作为界面框架的纯 Python 应用，但凡会炼模型的人都能改两下——修改简单
-* **可全览 GPU 存量**
-  * 通过“算力实况”功能可快速查看全站 GPU 主机的数量
 * **开源免费**：
   * ？Why not
   * 祝你用得开心
@@ -131,7 +129,7 @@ venv，可以根据情况自己灵活处理。
    python app.py
    ```
 
-执行启动服务的命令后，即可从输出的信息中看到服务的网址，如：```http://127.0.0.1:7860```，在浏览器中打开该网址即可看到此工具的 UI 界面。
+执行启动服务的命令后，即可从输出的信息中看到服务的网址：[http://127.0.0.1:7860](http://127.0.0.1:7860)，打开该网址即可进入 UI 界面。
 
 <p align="right">(<a href="#readme-top">⬆️ TOP</a>)</p>
 
