@@ -743,7 +743,9 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                 gr_image_category: gr.Radio(value=config.image_category),
 
                 gr_base_image: gr.Dropdown(
-                    value=json_dumps({"base_image_labels": config.base_image_labels}),
+                    value=json_dumps({
+                        "base_image_labels": config.base_image_labels,
+                    }) if config.base_image_labels else None,
                     allow_custom_value=True,
                 ),
                 gr_shared_image_search: gr.Textbox(value=config.shared_image_keyword),
@@ -752,14 +754,14 @@ with gr.Blocks(title="AutoDL GPU Hunter", theme=gr.themes.Default(text_size="lg"
                         "shared_image_keyword": config.shared_image_keyword,
                         "shared_image_username_keyword": config.shared_image_username_keyword,
                         "shared_image_version": config.shared_image_version,
-                    }),
+                    }) if config.shared_image_keyword else None,
                     allow_custom_value=True,
                 ),
                 gr_private_image: gr.Dropdown(
                     value=json_dumps({
                         "private_image_uuid": config.private_image_uuid,
                         "private_image_name": config.private_image_name,
-                    }),
+                    }) if config.private_image_uuid else None,
                     allow_custom_value=True,
                 ),
                 gr_expand_disk_gb: gr.Slider(value=config.expand_data_disk / 1024 / 1024 / 1024),
