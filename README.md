@@ -1,35 +1,24 @@
 <!-- Thanks to https://github.com/othneildrew/Best-README-Template -->
 
 <a name="readme-top"></a>
-<div style="text-align: center">
-  <a href="https://github.com/mfznttkx/autodl-gpuhunter/graphs/contributors">
-    <img src="https://img.shields.io/github/contributors/mfznttkx/autodl-gpuhunter.svg?style=for-the-badge" alt="Contributors"/>
-  </a>
-  <a href="https://github.com/mfznttkx/autodl-gpuhunter/network/members">
-    <img src="https://img.shields.io/github/forks/mfznttkx/autodl-gpuhunter.svg?style=for-the-badge" alt="Forks"/>
-  </a>
-  <a href="https://github.com/mfznttkx/autodl-gpuhunter/stargazers">
-    <img src="https://img.shields.io/github/stars/mfznttkx/autodl-gpuhunter.svg?style=for-the-badge" alt="Stargazers"/>
-  </a>
-  <a href="https://github.com/mfznttkx/autodl-gpuhunter/issues">
-    <img src="https://img.shields.io/github/issues/mfznttkx/autodl-gpuhunter.svg?style=for-the-badge" alt="Issues"/>
-  </a>
-  <a href="https://github.com/mfznttkx/autodl-gpuhunter/blob/master/LICENSE.txt">
-    <img src="https://img.shields.io/github/license/mfznttkx/autodl-gpuhunter.svg?style=for-the-badge" alt="License"/>
-  </a>
+<div align="center">
+  <a href="https://github.com/mfznttkx/autodl-gpuhunter/graphs/contributors"><img src="https://img.shields.io/github/contributors/mfznttkx/autodl-gpuhunter.svg?style=for-the-badge" alt="Contributors"/></a>
+  <a href="https://github.com/mfznttkx/autodl-gpuhunter/network/members"><img src="https://img.shields.io/github/forks/mfznttkx/autodl-gpuhunter.svg?style=for-the-badge" alt="Forks"/></a>
+  <a href="https://github.com/mfznttkx/autodl-gpuhunter/stargazers"><img src="https://img.shields.io/github/stars/mfznttkx/autodl-gpuhunter.svg?style=for-the-badge" alt="Stargazers"/></a>
+  <a href="https://github.com/mfznttkx/autodl-gpuhunter/issues"><img src="https://img.shields.io/github/issues/mfznttkx/autodl-gpuhunter.svg?style=for-the-badge" alt="Issues"/></a>
+  <a href="https://github.com/mfznttkx/autodl-gpuhunter/blob/master/LICENSE.txt"><img src="https://img.shields.io/github/license/mfznttkx/autodl-gpuhunter.svg?style=for-the-badge" alt="License"/></a>
 </div>
 
-<div style="text-align: center">
-  <a href="https://github.com/mfznttkx/autodl-gpuhunter">
-    <h2 style="font-size: 72px; margin-top: 0">🐒</h2>
-  </a>
+<div align="center">
+    <br/><br/>
+  <a href="https://github.com/mfznttkx/autodl-gpuhunter"><img src="./docs/monkey.png" alt="monkey" height="100" /></a>
 
-  <h3 style="text-align: center">
+  <h3 align="center">
     GPU Hunter for
     <a href="https://www.autodl.com/">AutoDL.com</a>
   </h3>
 
-  <p style="text-align: center">
+  <p align="center">
     这是一个帮你蹲守 AutoDL.com 显卡主机的工具。
     <br />
     This tool helps you reserve GPU machines on AutoDL.com.
@@ -77,7 +66,7 @@
   </tr>
 </table>
 
-<p style="text-align: right">(<a href="#readme-top">⬆️ TOP</a>)</p>
+<p align="right">(<a href="#readme-top">⬆️ TOP</a>)</p>
 
 <a name="features"></a>
 
@@ -105,7 +94,7 @@
   * 祝你用得开心
   * 如果自己加了好用的专属功能，别忘了可以通过 [提交PR](https://github.com/mfznttkx/autodl-gpuhunter/pulls) 分享给大家，谢谢！
 
-<p style="text-align: right">(<a href="#readme-top">⬆️ TOP</a>)</p>
+<p align="right">(<a href="#readme-top">⬆️ TOP</a>)</p>
 
 
 <a name="getting-started"></a>
@@ -144,7 +133,7 @@ venv，可以根据情况自己灵活处理。
 
 执行启动服务的命令后，即可从输出的信息中看到服务的网址，如：http://127.0.0.1:7860，在浏览器中打开该网址即可看到此工具的 UI 界面。
 
-<p style="text-align: right">(<a href="#readme-top">⬆️ TOP</a>)</p>
+<p align="right">(<a href="#readme-top">⬆️ TOP</a>)</p>
 
 
 <a name="usage"></a>
@@ -165,7 +154,7 @@ venv，可以根据情况自己灵活处理。
 
 以上设置会自动保存，所以通常只需直接按下“开始蹲守”即可！
 
-<p style="text-align: right">(<a href="#readme-top">⬆️ TOP</a>)</p>
+<p align="right">(<a href="#readme-top">⬆️ TOP</a>)</p>
 
 
 <a name="important-notes"></a>
@@ -181,7 +170,7 @@ venv，可以根据情况自己灵活处理。
 4. **注意这个选项**：“守到后将 Hunter 关机”的选项主要用于自动关闭在云端以容器方式运行的 GPU Hunter
    实例。如果需要在本地机器使用，请注意保存你在该机器上未完成的工作，防止机器被程序自动关闭而造成损失。
 
-<p style="text-align: right">(<a href="#readme-top">⬆️ TOP</a>)</p>
+<p align="right">(<a href="#readme-top">⬆️ TOP</a>)</p>
 
 
 <a name="roadmap"></a>
@@ -197,7 +186,7 @@ venv，可以根据情况自己灵活处理。
 如果你有更多的需求或想法，欢迎提出 [功能需求](https://github.com/mfznttkx/autodl-gpuhunter/issues)
 或 [PR](https://github.com/mfznttkx/autodl-gpuhunter/pulls)！谢谢！
 
-<p style="text-align: right">(<a href="#readme-top">⬆️ TOP</a>)</p>
+<p align="right">(<a href="#readme-top">⬆️ TOP</a>)</p>
 
 
 <a name="acknowledgments"></a>
@@ -209,4 +198,4 @@ venv，可以根据情况自己灵活处理。
 * [requests](https://github.com/psf/requests): An elegant and simple HTTP library for Python
 * [retry](https://github.com/invl/retry): Easy to use retry decorator in python
 
-<p style="text-align: right">(<a href="#readme-top">⬆️ TOP</a>)</p>
+<p align="right">(<a href="#readme-top">⬆️ TOP</a>)</p>
